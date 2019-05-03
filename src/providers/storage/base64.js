@@ -7,8 +7,13 @@ const base64 = () => ({
     const reader = new FileReader();
 
     return new Promise((resolve, reject) => {
-      reader.onload = (event) => {
-        const url = event.target.result;
+      reader.onerror = () => {
+        return reject(this);
+      };
+
+      reader.readAsDataURL(file);
+      setTimeout(() => {
+        const url = reader._result;
         resolve({
           storage: 'base64',
           name: fileName,
@@ -16,13 +21,7 @@ const base64 = () => ({
           size: file.size,
           type: file.type,
         });
-      };
-
-      reader.onerror = () => {
-        return reject(this);
-      };
-
-      reader.readAsDataURL(file);
+      }, 500);
     });
   },
   downloadFile(file) {
