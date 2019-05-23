@@ -3231,6 +3231,11 @@ body.formio-dialog-open {
 .formio-tagpad-form-title {
   font-size: 1.7em; }
 
+.formio-prev-page .page-link {
+  color: #fff;
+  background-color: #17a2b8;
+  border-color: #17a2b8; }
+
 .formbuilder {
   position: relative; }
   .formbuilder .drag-container, .formbuilder .formio-component-html, .formbuilder .formio-component-custom {
