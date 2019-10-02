@@ -32,7 +32,7 @@ describe('Formio Form Renderer tests', () => {
       Harness.testElements(simpleForm, 'input[name="data[firstName]"]', 1);
       Harness.testElements(simpleForm, 'input[name="data[lastName]"]', 1);
       done();
-    });
+    }).catch(done);
   });
 
   it('Should set a submission to the form.', () => {
@@ -45,6 +45,7 @@ describe('Formio Form Renderer tests', () => {
   it('Should translate a form from options', done => {
     const formElement = document.createElement('div');
     const translateForm = new Webform(formElement, {
+      template: 'bootstrap3',
       language: 'es',
       i18n: {
         es: {
@@ -66,14 +67,15 @@ describe('Formio Form Renderer tests', () => {
       ]
     }).then(() => {
       const label = formElement.querySelector('.control-label');
-      assert.equal(label.innerHTML, 'Spanish Label');
+      assert.equal(label.innerHTML.trim(), 'Spanish Label');
       done();
-    });
+    }).catch(done);
   });
 
   it('Should translate a form after instantiate', done => {
     const formElement = document.createElement('div');
     const translateForm = new Webform(formElement, {
+      template: 'bootstrap3',
       i18n: {
         es: {
           'Default Label': 'Spanish Label'
@@ -95,14 +97,15 @@ describe('Formio Form Renderer tests', () => {
     }).then(() => {
       translateForm.language = 'es';
       const label = formElement.querySelector('.control-label');
-      assert.equal(label.innerHTML, 'Spanish Label');
+      assert.equal(label.innerHTML.trim(), 'Spanish Label');
       done();
-    });
+    }).catch(done);
   });
 
   it('Should add a translation after instantiate', done => {
     const formElement = document.createElement('div');
     const translateForm = new Webform(formElement, {
+      template: 'bootstrap3',
       i18n: {
         language: 'es',
         es: {
@@ -128,14 +131,16 @@ describe('Formio Form Renderer tests', () => {
     }).then(() => {
       translateForm.language = 'fr';
       const label = formElement.querySelector('.control-label');
-      assert.equal(label.innerHTML, 'French Label');
+      assert.equal(label.innerHTML.trim(), 'French Label');
       done();
-    });
+    }).catch(done);
   });
 
   it('Should switch a translation after instantiate', done => {
     const formElement = document.createElement('div');
-    const translateForm = new Webform(formElement);
+    const translateForm = new Webform(formElement, {
+      template: 'bootstrap3',
+    });
     translateForm.setForm({
       title: 'Translate Form',
       components: [
@@ -151,8 +156,147 @@ describe('Formio Form Renderer tests', () => {
     }).then(() => {
       translateForm.addLanguage('es', { 'Default Label': 'Spanish Label' }, true);
       const label = formElement.querySelector('.control-label');
-      assert.equal(label.innerHTML, 'Spanish Label');
+      assert.equal(label.innerHTML.trim(), 'Spanish Label');
       done();
+    }).catch(done);
+  });
+
+  it('Should keep translation after redraw', done => {
+    const formElement = document.createElement('div');
+    const form = new Webform(formElement, {
+      template: 'bootstrap3',
+    });
+    const schema = {
+      title: 'Translate Form',
+      components: [
+        {
+          type: 'textfield',
+          label: 'Default Label',
+          key: 'myfield',
+          input: true,
+          inputType: 'text',
+          validate: {}
+        }
+      ]
+    };
+
+    try {
+      form.setForm(schema)
+        .then(() => {
+          form.addLanguage('ru', { 'Default Label': 'Russian Label' }, true);
+          return form.language = 'ru';
+        }, done)
+        .then(() => {
+          expect(form.options.language).to.equal('ru');
+          expect(formElement.querySelector('.control-label').innerHTML.trim()).to.equal('Russian Label');
+          form.redraw();
+          expect(form.options.language).to.equal('ru');
+          expect(formElement.querySelector('.control-label').innerHTML.trim()).to.equal('Russian Label');
+          done();
+        }, done)
+        .catch(done);
+    }
+    catch (error) {
+      done(error);
+    }
+  });
+
+  it('Should fire languageChanged event when language is set', done => {
+    let isLanguageChangedEventFired = false;
+    const formElement = document.createElement('div');
+    const form = new Webform(formElement, {
+      template: 'bootstrap3',
+    });
+    const schema = {
+      title: 'Translate Form',
+      components: [
+        {
+          type: 'textfield',
+          label: 'Default Label',
+          key: 'myfield',
+          input: true,
+          inputType: 'text',
+          validate: {}
+        }
+      ]
+    };
+
+    try {
+      form.setForm(schema)
+        .then(() => {
+          form.addLanguage('ru', { 'Default Label': 'Russian Label' }, false);
+          form.on('languageChanged', () => {
+            isLanguageChangedEventFired = true;
+          });
+          return form.language = 'ru';
+        }, done)
+        .then(() => {
+          assert(isLanguageChangedEventFired);
+          done();
+        }, done)
+        .catch(done);
+    }
+    catch (error) {
+      done(error);
+    }
+  });
+
+  it('When submitted should strip fields with persistent: client-only from submission', done => {
+    const formElement = document.createElement('div');
+    simpleForm = new Webform(formElement);
+    /* eslint-disable quotes */
+    simpleForm.setForm({
+      title: 'Simple Form',
+      components: [
+        {
+          "label": "Name",
+          "allowMultipleMasks": false,
+          "showWordCount": false,
+          "showCharCount": false,
+          "tableView": true,
+          "type": "textfield",
+          "input": true,
+          "key": "name",
+          "widget": {
+            "type": ""
+          }
+        },
+        {
+          "label": "Age",
+          "persistent": "client-only",
+          "mask": false,
+          "tableView": true,
+          "type": "number",
+          "input": true,
+          "key": "age"
+        }
+      ]
+    });
+    /* eslint-enable quotes */
+
+    Harness.testSubmission(simpleForm, {
+      data: { name: 'noname', age: '1' }
+    });
+
+    simpleForm.submit().then((submission) => {
+      assert.deepEqual(submission.data, { name: 'noname' });
+      done();
+    });
+  });
+
+  describe('set/get nosubmit', () => {
+    it('should set/get nosubmit flag and emit nosubmit event', () => {
+      const form = new Webform(null, {});
+      const emit = sinon.spy(form, 'emit');
+      expect(form.nosubmit).to.be.false;
+      form.nosubmit = true;
+      expect(form.nosubmit).to.be.true;
+      expect(emit.callCount).to.equal(1);
+      expect(emit.args[0]).to.deep.equal(['nosubmit', true]);
+      form.nosubmit = false;
+      expect(form.nosubmit).to.be.false;
+      expect(emit.callCount).to.equal(2);
+      expect(emit.args[1]).to.deep.equal(['nosubmit', false]);
     });
   });
 
@@ -326,12 +470,10 @@ describe('Formio Form Renderer tests', () => {
     each(formTest.tests, (formTestTest, title) => {
       it(title, (done) => {
         const formElement = document.createElement('div');
-        const form = new Webform(formElement, { language: 'en' });
+        const form = new Webform(formElement, { language: 'en', template: 'bootstrap3' });
         form.setForm(formTest.form).then(() => {
           formTestTest(form, done);
-        }).catch((error) => {
-          done(error);
-        });
+        }).catch(done);
       });
     });
   });

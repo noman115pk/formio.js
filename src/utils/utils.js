@@ -6,11 +6,12 @@ import jsonLogic from 'json-logic-js';
 import moment from 'moment-timezone/moment-timezone';
 import jtz from 'jstimezonedetect';
 import { lodashOperators } from './jsonlogic/operators';
-import Promise from 'native-promise-only';
+import NativePromise from 'native-promise-only';
 import { getValue } from './formUtils';
-import stringHash from 'string-hash';
+import Evaluator from './Evaluator';
+const interpolate = Evaluator.interpolate;
 const { fetch } = fetchPonyfill({
-  Promise: Promise
+  Promise: NativePromise
 });
 
 export * from './formUtils';
@@ -44,12 +45,11 @@ export { jsonLogic, moment };
  */
 export function evaluate(func, args, ret, tokenize) {
   let returnVal = null;
-  args.component = args.component ? _.cloneDeep(args.component) : { key: 'unknown' };
+  const component = args.component ? args.component : { key: 'unknown' };
   if (!args.form && args.instance) {
     args.form = _.get(args.instance, 'root._form', {});
   }
-  args.form = _.cloneDeep(args.form);
-  const componentKey = args.component.key;
+  const componentKey = component.key;
   if (typeof func === 'string') {
     if (ret) {
       func += `;return ${ret}`;
@@ -72,7 +72,7 @@ export function evaluate(func, args, ret, tokenize) {
     }
 
     try {
-      func = new Function(...params, func);
+      func = Evaluator.evaluator(func, ...params);
       args = _.values(args);
     }
     catch (err) {
@@ -328,7 +328,7 @@ export function setActionProperty(component, action, row, data, result, instance
       const textValue = action.property.component ? action[action.property.component] : action.text;
       const newValue = (instance && instance.interpolate) ?
         instance.interpolate(textValue, evalData) :
-        interpolate(textValue, evalData);
+        Evaluator.interpolate(textValue, evalData);
       if (newValue !== _.get(component, action.property.value, '')) {
         _.set(component, action.property.value, newValue);
       }
@@ -338,63 +338,33 @@ export function setActionProperty(component, action, row, data, result, instance
   return component;
 }
 
-const templateCache = {};
-const templateHashCache = {};
-
-function interpolateTemplate(template) {
-  const templateSettings = {
-    evaluate: /\{%([\s\S]+?)%\}/g,
-    interpolate: /\{\{([\s\S]+?)\}\}/g,
-    escape: /\{\{\{([\s\S]+?)\}\}\}/g
-  };
-  try {
-    return _.template(template, templateSettings);
-  }
-  catch (err) {
-    console.warn('Error while processing template', err, template);
-  }
-}
-
-export function addTemplateHash(template) {
-  const hash = stringHash(template);
-  templateHashCache[hash] = interpolateTemplate(template);
-  return hash;
-}
-
-/**
- * Interpolate a string and add data replacements.
- *
- * @param string
- * @param data
- * @returns {XML|string|*|void}
- */
-export function interpolate(rawTemplate, data) {
-  const template = _.isNumber(rawTemplate)
-    ? templateHashCache[rawTemplate]
-    : templateCache[rawTemplate] = templateCache[rawTemplate] || interpolateTemplate(rawTemplate);
-  if (typeof template === 'function') {
-    try {
-      return template(data);
-    }
-    catch (err) {
-      console.warn('Error interpolating template', err, rawTemplate, data);
-    }
-  }
-  return template;
-}
-
 /**
  * Make a filename guaranteed to be unique.
  * @param name
+ * @param template
+ * @param evalContext
  * @returns {string}
  */
-export function uniqueName(name) {
-  const parts = name.toLowerCase().replace(/[^0-9a-z.]/g, '').split('.');
-  const fileName = parts[0];
-  const ext = parts.length > 1
+export function uniqueName(name, template, evalContext) {
+  template = template || '{{fileName}}-{{guid}}';
+  //include guid in template anyway, to prevent overwriting issue if filename matches existing file
+  if (!template.includes('{{guid}}')) {
+    template = `${template}-{{guid}}`;
+  }
+  const parts = name.split('.');
+  let fileName = parts.slice(0, parts.length - 1).join('.');
+  const extension = parts.length > 1
     ? `.${_.last(parts)}`
     : '';
-  return `${fileName.substr(0, 10)}-${guid()}${ext}`;
+  //allow only 100 characters from original name to avoid issues with filename length restrictions
+  fileName = fileName.substr(0, 100);
+  evalContext = Object.assign(evalContext || {}, {
+    fileName,
+    guid: guid()
+  });
+  //only letters, numbers, dots, dashes, underscores and spaces are allowed. Anything else will be replaced with dash
+  const uniqueName = `${Evaluator.interpolate(template, evalContext)}${extension}`.replace(/[^0-9a-zA-Z.\-_ ]/g, '-');
+  return uniqueName;
 }
 
 export function guid() {
@@ -432,7 +402,7 @@ export function getDateSetting(date) {
 
   dateSetting = null;
   try {
-    const value = (new Function('moment', `return ${date};`))(moment);
+    const value = Evaluator.evaluator(`return ${date};`, 'moment')(moment);
     if (typeof value === 'string') {
       dateSetting = moment(value);
     }
@@ -527,14 +497,14 @@ export function shouldLoadZones(timezone) {
 export function loadZones(timezone) {
   if (timezone && !shouldLoadZones(timezone)) {
     // Return non-resolving promise.
-    return new Promise(_.noop);
+    return new NativePromise(_.noop);
   }
 
   if (moment.zonesPromise) {
     return moment.zonesPromise;
   }
   return moment.zonesPromise = fetch(
-    'https://formio.github.io/formio.js/resources/latest.json',
+    'https://cdn.form.io/moment-timezone/data/packed/latest.json',
   ).then(resp => resp.json().then(zones => {
     moment.tz.load(zones);
     moment.zonesLoaded = true;
@@ -678,7 +648,7 @@ export function convertFormatToFlatpickr(format) {
 
     // Hours, minutes, seconds
     .replace('HH', 'H')
-    .replace('hh', 'h')
+    .replace('hh', 'G')
     .replace('mm', 'i')
     .replace('ss', 'S')
     .replace(/a/g, 'K');
@@ -691,7 +661,7 @@ export function convertFormatToFlatpickr(format) {
  */
 export function convertFormatToMoment(format) {
   return format
-    // Year conversion.
+  // Year conversion.
     .replace(/y/g, 'Y')
     // Day in month.
     .replace(/d/g, 'D')
@@ -703,10 +673,10 @@ export function convertFormatToMoment(format) {
 
 export function convertFormatToMask(format) {
   return format
-    // Short and long month replacement.
+  // Short and long month replacement.
     .replace(/(MMM|MMMM)/g, 'MM')
     // Year conversion
-    .replace(/[ydhmsHM]/g, '9')
+    .replace(/[ydhmsHMG]/g, '9')
     // AM/PM conversion
     .replace(/a/g, 'AA');
 }
@@ -794,11 +764,11 @@ export function getNumberDecimalLimit(component) {
 }
 
 export function getCurrencyAffixes({
-  currency = 'USD',
-  decimalLimit,
-  decimalSeparator,
-  lang,
-}) {
+                                     currency = 'USD',
+                                     decimalLimit,
+                                     decimalSeparator,
+                                     lang,
+                                   }) {
   // Get the prefix and suffix from the localized string.
   let regex = '(.*)?100';
   if (decimalLimit) {
@@ -904,7 +874,7 @@ export function delay(fn, delay = 0, ...args) {
  */
 export function iterateKey(key) {
   if (!key.match(/(\d+)$/)) {
-    return `${key}2`;
+    return `${key}1`;
   }
 
   return key.replace(/(\d+)$/, function(suffix) {
@@ -1016,3 +986,18 @@ export function observeOverload(callback, options = {}) {
     }
   };
 }
+
+export function getContextComponents(context) {
+  var values = [];
+  context.utils.eachComponent(context.instance.options.editForm.components, (component) => {
+    if (component.key !== context.data.key) {
+      values.push({
+        label: component.label || component.key,
+        value: component.key
+      });
+    }
+  });
+  return values;
+}
+
+export { Evaluator, interpolate };

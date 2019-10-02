@@ -121,58 +121,6 @@ export default {
         return parseFloat(value) <= max;
       }
     },
-    minSelectedCount: {
-      key: 'validate.minSelectedCount',
-      message(component, setting) {
-        return component.component.minSelectedCountMessage
-          ? component.component.minSelectedCountMessage
-          : component.t(component.errorMessage('minSelectedCount'), {
-              minCount: parseFloat(setting),
-              data: component.data
-            });
-      },
-      check(component, setting, value) {
-        const min = parseFloat(setting);
-
-        if (!min) {
-          return true;
-        }
-        const count = Object.keys(value).reduce((total, key) =>{
-          if (value[key]) {
-            total++;
-          }
-          return total;
-        }, 0);
-
-        return count >= min;
-      }
-    },
-    maxSelectedCount: {
-      key: 'validate.maxSelectedCount',
-      message(component, setting) {
-        return component.component.maxSelectedCountMessage
-          ? component.component.maxSelectedCountMessage
-          : component.t(component.errorMessage('maxSelectedCount'), {
-              minCount: parseFloat(setting),
-              data: component.data
-            });
-      },
-      check(component, setting, value) {
-        const max = parseFloat(setting);
-
-        if (!max) {
-          return true;
-        }
-        const count = Object.keys(value).reduce((total, key) =>{
-          if (value[key]) {
-            total++;
-          }
-          return total;
-        }, 0);
-
-        return count <= max;
-      }
-    },
     minLength: {
       key: 'validate.minLength',
       message(component, setting) {
@@ -221,7 +169,7 @@ export default {
         if (!maxWords || (typeof value !== 'string')) {
           return true;
         }
-        return (value.trim().split(/\s+/).length <= maxWords);
+        return (_.words(value).length <= maxWords);
       }
     },
     minWords: {
@@ -229,7 +177,7 @@ export default {
       message(component, setting) {
         return component.t(component.errorMessage('minWords'), {
           field: component.errorLabel,
-          length: (setting + 1),
+          length: (setting - 1),
           data: component.data
         });
       },
@@ -238,7 +186,7 @@ export default {
         if (!minWords || (typeof value !== 'string')) {
           return true;
         }
-        return (value.trim().split(/\s+/).length >= minWords);
+        return (_.words(value).length >= minWords);
       }
     },
     email: {
@@ -385,6 +333,10 @@ export default {
         });
       },
       check(component, setting, value) {
+        if (component.skipMaskValidation) {
+          return true;
+        }
+
         let inputMask;
         if (component.isMultipleMasksField) {
           const maskName = value ? value.maskName : undefined;
@@ -395,7 +347,7 @@ export default {
           value = value ? value.value : value;
         }
         else {
-          inputMask = component._inputMask;
+          inputMask = component.defaultMask;
         }
         if (value && inputMask) {
           return matchInputMask(value, inputMask);

@@ -11,6 +11,10 @@ export default [
     ignore: true
   },
   {
+    key: 'mask',
+    ignore: true
+  },
+  {
     type: 'number',
     input: true,
     key: 'rows',
@@ -29,12 +33,28 @@ export default [
     data: {
       values: [
         { label: 'None', value: '' },
-        { label: 'Quill', value: 'quill' },
         { label: 'CKEditor', value: 'ckeditor' },
-        { label: 'ACE', value: 'ace' }
+        { label: 'ACE', value: 'ace' },
+        { label: 'Quill', value: 'quill' }
       ]
     },
     weight: 415
+  },
+  {
+    type: 'checkbox',
+    input: true,
+    key: 'autoExpand',
+    label: 'Auto Expand',
+    tooltip: 'This will make the TextArea auto expand it\'s height as the user is typing into the area.',
+    weight: 415,
+    conditional: {
+      json: {
+        '==': [
+          { var: 'data.editor' },
+          ''
+        ]
+      }
+    }
   },
   {
     type: 'checkbox',
@@ -51,12 +71,6 @@ export default [
               'quill'
             ]
           },
-          {
-            '==': [
-              { var: 'data.editor' },
-              ''
-            ]
-          }
         ]
       }
     }
@@ -178,11 +192,15 @@ export default [
     tooltip: 'Enter the WYSIWYG editor JSON configuration.',
     key: 'wysiwyg',
     customDefaultValue(value, component, row, data, instance) {
-      return instance.wysiwygDefault;
+      return instance ? instance.wysiwygDefault : '';
     },
     conditional: {
       json: {
         or: [
+          { '===': [
+            { var: 'data.editor' },
+            'ckeditor'
+          ] },
           { '===': [
             { var: 'data.editor' },
             'quill'

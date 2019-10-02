@@ -4,6 +4,297 @@ All notable changes to this project will be documented in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 4.0.11
+### Fixed 
+ - Use of for/of in template not supported in IE11
+
+## 4.0.10
+### Added
+ - Delete handler for file storage providers
+ 
+### Fixed
+ - Select component delete event
+ - Wizard page length can sometimes cause issues if used before initialized.
+ - Editgrid state for each row sometimes is wrong.
+
+## 4.0.9
+### Fixed
+ - Custom validation errors clearing too often when external validations are set.
+ - Field logic not firing on first page of wizard.
+ - Minor issues with semantic templates and incorrect variables.
+ - Missing functions when calling components directly.
+ - Client only persistence not reporting correctly in results.
+ - Get tests running and passing.
+ - Fix clear on hide when initially setting values and when items show or hide.
+
+## 4.0.8
+### Reverted
+ - Changing the way tabs are attached since it broke setting values in all non-active tabs.
+
+## 4.0.7
+### Fixed
+ - Select with boolean or simple numbers were not matching on setValue
+ - Builder defaults options to an empty object if not given.
+
+## 4.0.6
+### Added
+ - Select and Radio can now specify the Storage Type for date type casting.
+
+### Fixed
+ - Shortcuts missing options in builder.
+ - Datetime component losing timezone when saving
+ - Field logic not firing on panel pages.
+
+## 4.0.5
+### Added
+ - Add string representation of form component for table views.
+
+### Fixed
+ - Problem with select component would chose empty object as default instead of empty string.
+ - Fixed issue when skip&limit become undefined if select resource data type
+ - Issue with the Container component within the form builder overlapping outside.
+ - Problem where values would not get reset after a form is redrawn.
+
+## 4.0.4
+Not found
+
+## 4.0.3
+### Fixed
+ - Major performance regressions when form or component were used in custom conditionals or calcuations.
+
+## 4.0.2
+### Fixed
+ - Fixed issue with appearance of unnecessary loading option
+ - Disable load icon item in select component.
+ - Infinite refresh loop by not triggering an update when setting a provided value on Select components.
+ - Issue where the Redraw On option in the form builder was throwing some errors.
+
+### Changed
+ - The refreshOn property to be called "redrawOn", unless it is a Select component. This will maintain reverse compatability for now with and will gracefully deviate in the future.
+
+## 4.0.1
+### Fixed
+ - Components would incorrectly clear any values that are visible because of another value when loading a submission.
+
+## 4.0.0
+### Breaking Changes
+ - Refactored the build methods for all components, and broke that apart to be 3 separate methods:
+   - init: Initialize the render component.
+   - render: Renders the component as a string.
+   - attach: Looks up references in the template, and then binds events and attaches component logic to the template.
+ - Component class replaces the BaseCompoennt class.
+ - Added more OOP heirarchy to components including.
+   - Field
+   - Input
+   - MultiValue
+ - Directory structure:
+   - Base classes are now stored in the "components/_classes" folder including
+     - Component - Base component for most components.
+     - Field
+     - Input - All input element derive from this class.
+     - MultiValue - Handles multiple valued components
+     - Nested - Handles all nested components.
+ - Introducing Templates
+   - You can now create your own templates that can override all aspects of the UI/UX for the rendered forms. See https://github.com/formio/formio.js/wiki/Form-Templating
+ - updateValue() - This method now passes the "value" of the component to the first argument, instead of the second. 
+    3.x:  updateValue(flags, value)
+    4.x:  updateValue(value, flags)
+
+## 3.22.6
+### Fixed
+ - Problem where the wysiwyg settings would get reset when hidden.
+ - Issues where infinite onchange events would get triggered if a checkbox component was configured as Radio, but no Radio Key is provided.
+
+## 3.22.5
+### Fixed
+ - Date picker suffix icon for Bootstrap 4
+ - Problems with the PDF builder not allowing edit after the component has been added to the form.
+
+## 3.22.4
+### Changed
+ - Changed all "Promise" instances to use the "NativePromise" polyfill so that core-js would not include a Polyfill of Promise. This was causing issues with other frameworks (Angular) where they duck-punch the Promise library and throw errors when anything other than their wrappers are used (like what zone.js does).
+
+## 3.22.3
+### Changed
+ - Moved core-js as a dependency so that other libs dependent on core-js@2 can still build this module.
+ - Moved the CKEditor NumRows plugin to the formio/ckeditor5-build-classic repo.
+
+### Fixed
+ - FOR-2314: Re-fixed builder buttons missing after redraw + fixed Wizard building being broken
+
+## 3.22.2
+### Fixed
+ - Issues with the form builder not able to switch between wizard pages.
+
+## 3.22.1
+### Fixed
+ - Issues where the "rows" property was not working on CKEditor.
+
+### Added
+ - Ability to configure the wysiwyg settings for the CKEditor.
+
+## 3.22.0
+### Changed
+ - Upgraded to core-js@3
+ - Upgraded all dependencies.
+
+### Fixed
+ - Issue where reset for Day component was messing up the data.
+ - Sketchpad: Issues with resizing drawing area on beta portal and JS Fiddles
+ - FOR-2314: Builder buttons missing after redraw (for ex. when component has ```refreshOn: 'data'```)
+
+## 3.21.5
+### Fixed
+ - Issues with the CKEditor not working correctly.
+
+## 3.21.4
+### Fixed
+ - Issues with the PDF builder.
+ - Tagpad -> Form data not changing on dot selection, typing in inner tagpad components not working correctly (both reproduce in ng-formio)
+ - FOR-2313: Sketchpad -> Fixed color pickers not working on beta portal
+
+## 3.21.3
+### Fixed
+ - FOR-2309: Tagpad -> Fixed drawing area being rendered over builder buttons when no background image is specified
+ - FOR-2312: Tagpad -> Fixed drawing not working on mobile
+
+## 3.21.2
+### Fixed
+ - FOR-2319: Tagpad -> Fixed drawing area not being auto-resized on initial render when it's inside of Tabs component
+
+## 3.21.1
+### Fixed
+ - FOR-2310: Tagpad -> Fixed dot being drawn with offset when initial image has minX minY in viewBox
+
+## 3.21.0 
+### Added
+ - FOR-2290: Ability to specify file name template for File component
+
+### Fixed
+ - FOR-2079: Cursor jumping in WYSIWYGs when typing in ng-formio, added test
+
+### Added
+ - FOR-2290: Ability to specify file name template for File component
+
+## 3.20.17
+### Fixed
+ - Issue with the onChange for textarea's with wysiwyg enabled.
+ - Problems where the pristine flag would not get set correctly.
+
+## 3.20.16
+### Fixed
+ - Fix error where the modified flag was getting fired for wysiwyg editors.
+
+### Changed
+ - Clenaup Choices.selectFields functionality.
+
+### Added
+ - Add config for search in Resource components
+
+## 3.20.15
+### Fixed
+ - Issue where submission with form revisions enabled on "original" form setting was using wrong form.
+ - Problem where subform change events were not propagating change flags to the parent form change event.
+ - Sketchpad: Small gap at the bottom of view mode image
+ - Issue where the change event from a Nested form component was setting the form component as the source instead of the component that triggered the change within.
+
+### Added
+ - Tagpad: Automatic resizing of drawing area to fill half of available width
+
+## 3.20.14
+### Fixed
+ - Field logic infinite redraw issue with Select dropdowns.
+ - Problems where the Calendar widgets would not work when Field logic is enabled.
+
+## 3.20.13
+### Fixed
+ - Problem with subforms where the submission data could possibly reset.
+ - Problem with duplicate change events firing from the form components.
+
+## 3.20.12
+### Added
+ - FOR-2273: Sketchpad -> Automatic resizing of drawing area to fill all free space in modal 
+ - Min and Max validations to the DataGrid form builder interface.
+
+### Fixed
+ - Tagpad: Background being invisible in readOnly mode and overflowing its container
+ - When pasting a copied component into an empty layout component, it should paste the component inside the layout component instead of below it.
+ - Issues where the "Allow override of calculated value" would get in a bad state.
+ 
+### Changed
+ - Upgraded i18next@15.1.1, babel-loader@8.0.6
+
+## 3.20.11
+### Fixed
+ - FOR-2216: Add white-space:pre-wrap to native + ACE textareas in readonly/disabled/PDF mode
+ - Sketchpad: issue in Chrome with background image being displayed as text
+ - FOR-2239: Sketchpad -> Fixed issues with background being shifted in datagrid
+ - power-assert output not shown when running formio.js unit tests with karma
+ - Component.addClass() adds 'null' to class attribute
+
+### Added
+ - Add automatic contrib component registration
+
+## 3.20.10
+### Fixed
+ - FOR-2241: Fixed the missing false value for conditional logic.
+ - Issues where Field Logic would get in an infinite loop.
+ - FOR-2248: Resolved some memory leak problems when using builder.
+ - Fixing problems where the tabs and checkbox disappear when redraw is called on them.
+
+## 3.20.9
+### Fixed
+ - Fixed memory-leak where the global Formio.forms were not deleted when the form is destroyed.
+
+## 3.20.8
+### Added
+ - The user, form and access to the userPermissions check.
+
+## 3.20.7
+### Fixed
+ - The relay url on the SAML authentication to encode the full url.
+ - FOR-2221: Skip supplying `form` during FormioUtils.evaluate() unless we need it
+
+### Added
+ - A userPermissions method on Formio to check user permissions on forms and submissions.
+ 
+### Changed
+ - Refactored the "canSubmit" method to use the new userPermissions method.
+
+## 3.20.6
+### Fixed
+ - Fix touch events on sketchpad, tagpad
+ - Fix removing last dot from tagpad
+ - Fix checkbox label id in datagrids always referring to same item
+ - Add builder info to tagpad and sketchpad
+
+## 3.20.5
+### Fixed
+ - Only clone form in custom conditionals if needed as it is expensive.
+
+## 3.20.4
+### Added
+ - A way for the SAML SSO to force the authentication to always trigger against the SAML provider.
+ 
+### Changed
+ - Upgraded @babel/cli@7.4.4, @babel/core@7.4.4, @babel/polyfill@7.4.4, @babel/preset-env@7.4.4, del@4.1.1
+
+## 3.20.3
+### Fixed
+ - IE issues by adding a CustomEvent polyfill.
+ - Possible problems where a plugin could be registered more than once.
+
+### Changed
+ - Upgraded fetch-mock@7.3.3, i18next@15.1.0, gulp-clean-css@4.2.0
+
+## 3.20.2
+### Fixed
+ - Headers were not being passed properly to fetch requests due to change from whatwg-fetch to fetch-ponyfill.
+
+## 3.20.1
+### Fixed
+ - Problem where forms configured for "fontawesome" would not show the DateTime calendar icon on the field.
+
 ## 3.20.0
 ### Added
  - Sketchpad: Ability to use dimensions from background SVG instead of providing ```component.width``` and ```component.height```
@@ -19,16 +310,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 3.20.0-beta.3
 ### Fixed
- - Problem where form builder would not fire any events when moving components.
- - Fixing the form merging logic and also adding tests to ensure future functionality.
- - Tagpad: sending excess headers on loading background image by URL 
  - WYSIWYG image upload being broken after lazy load change
- - Fixed auto adjusting columns when all components are not visible within.
-
-### Added
- - A missing "return" in the show method of the TextArea component.
- - Added validation for min & max cheched for selectboxes
- - Extra protection to ensure all components get an auto-generated "key" if not provided when rendering/building.
 
 ## 3.20.0-beta.2
 ### Fixed
@@ -67,142 +349,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - Problem where the wysiwyg editors would show up on a readOnly form and pdf.
 
 ### Added
- - Lazy load wysiwyg editors for text area components.
+ - FOR-2019: Ability to override CSS Classes in templates
+ - Ability to provide HTML attributes for components inputs
+ - Ability to autocomplete selects
 
-## 3.19.5
-### Fixed
- - FOR-2074: Tagpad fixes: outer tabs, validation, inner layout components
-
-## 3.19.4
-### Added
- - FOR-2074: Ability to specify background image URL instead of SVG markup for Tagpad
- - FOR-2073: Ability to specify background image URL instead of SVG markup for Sketchpad
+### Changed
+ - ```<form>``` being root HTML tag for the form instead of ```<div>``` 
 
 ### Fixed
- - FOR-2074: Tagpad issues with layout components
- - FOR-2074: Tagpad issues with validation check when there is no selected dot
- - FOR-2074: Tagpad issue with missing dots when component is re-created
+ - Creating builder by URL being broken
 
-## 3.19.3
 ### Fixed
- - Problem where the nested sub form was not sending the correct submission to load in subforms.
-
-## 3.19.2
-### Fixed
- - Problems where subforms are not returning change events when they should be.
-
-## 3.19.0, 3.19.1
-### Fixed
- - Ensure that the wysiwyg triggers updates with modified flag.
- - Fixing the wysiwyg editor to not fire change events on initialize.
- - Fixing the default height for ckeditor for rows configuration.
- - Fixing the subform loading/saving to only use the 'reference' variable for consistency. Had to remove the "submit" component flag and replaced it with "reference"
-
-### Added
- - Adding a way to disable the cache globally using "Formio.ignoreCache = true"
-
-## 3.18.4
-### Fixed
- - FOR-2074: Tagpad issues when no value is specified
- - FOR-2074: Added validation for Tagpad
- - FOR-2183: Pass along the hide/show options to nested forms.
- - FOR-2168: Fixed add andother button in TextArea component
- - Github-issue-1045: Fixed resource component render with HTML5 widget
- - Fix layout components crashing when moving in builder.
+ - Fallback to default non HTML templates (cssClasses, iconClass, transform, defaultIconSet) being broken
  
-### Changed
- - Upgraded i18next@15.0.9, @babel/core@7.4.3, @babel/polyfill@7.4.3, @babel/preset-env@7.4.3, fast-json-patch@2.1.0, @babel/cli@7.4.3, del@4.1.0
-
-## 3.18.3
-### Fixed
-  - FOR-2168: Fixed add another button in textarea component.
-  - Github-issue-1045: Fixed resource component render with HTML5 widget
-
-## 3.18.2
-### Fixed
- - FOR-2074: Tagpad error on submit when new dot is added and changed
- - FOR-2074: Tagpad issues with background
- - FOR-2073: Sketchpad issues with background
- - FOR-2105: Fix validation on initial render in editgrid
- - @zdegner: Select does not return value after scrolling to end of list of options 
- 
-### Changed
- - Upgraded i18next@15.0.8, hoek@6.1.3, sinon@7.3.1, eslint@5.16.0
-
-## 3.18.1
-### Fixed
- - FOR-2158: Fixed lazyLoad issue with multiple select when viewing value
- - FOR-2165: Fixed infinite loop with calculated value for select.
-
-## 3.18.0
-### Added
- - Allow locking nested forms to specific revisions.
- - Allowing for the auth url to be separated from the project url.
- - FOR-2074: TagPad Component
- - Bootstrap version option.
- - FOR-2073: Sketchpad Component
- 
-### Fixed
- - FOR-2119: Fixed issues with multiple masks crashing during a form destroy.
- - FOR-1956: Fix resetForm event on cancel button callback
- - FOR-2105: Fix empty required select is valid onChange
- - TextArea on non string value.
- 
-### Changed
- - Upgrade eslint@5.15.3, @babel/core@7.4.0, @babel/polyfill@7.4.0, @babel/preset-env@7.4.2, sinon@7.3.0
-
-## 3.17.4
-### Changed
- - Minor tweaks to functionality added in 3.17.3
-
-## 3.17.3
-### Added
- - Ability to view empty file information with flatten
-
-## 3.17.2
-### Added
- - Options to indicate bootstrap version manually.
-
-### Fixed
- - Case with TextArea, when value is not string or JSON object.
-
-## 3.17.1
-### Added
- - Tagpad component to contrib.
-
-## 3.17.0
-### Added
- - Sketchpad component to contrib.
-
-## 3.16.5
-### Fixed
- - Problem in build mode where the collapsed lazy load panels would reset the panel.
-
-## 3.16.4
-### Fixed
- - Edit forms for Base, Nested and Url components. 
- - Allow custom select options to override any defined options.
-
-### Added
- - The ability to configure a collapsed panel as a "lazyLoad" panel for performance improvements of long forms.
-
-### Changed
- - Upgrade flatpickr@4.5.7, i18next@15.0.7, dialog-polyfill@0.5.0
-
-## 3.16.3
-### Fixed
- - Non-incremental keys for layout components.
- - Issue where custom Headers within Select component were not getting included anymore.
- - Memory leaks within the Tabs and TextArea components with wysiwyg editors.
-
-## 3.16.2
-### Fixed
- - Issue with the image upload via webcam where the image would not get set in the image list.
- - Problem where 0 could not be set as the default value for Number components.
- 
-### Changed
- - Upgraded flatpickr@4.5.6, i18next@15.0.5, sinon@7.2.7, eslint@5.15.0, del@4.0.0
-
 ## 3.16.1
 ### Changed
  - Upgraded choices.js@6.0.3, @babel/core@7.3.4, @babel/preset-env@7.3.4, fetch-mock@7.3.1, karma@4.0.1, mocha@6.0.2, sinon@7.2.5, webpack@4.29.6
@@ -269,13 +428,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
  - Continuous scrolling to Select component.
  - Limit and sort for Select component.
- 
-### Fixed
- - Initial validation for webform components to not trigger checkData.
- - Fixing issue with the template cache not being a function.
- 
-### Changed
- - Upgraded webpack@4.29.3, i18next@15.0.0
 
 ## 3.14.0
 ### Fixed
@@ -343,23 +495,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## 3.13.1
 ### Added 
  - FOR-1933: 'formEmbedded' event
- - Currently logged in user to the evaluation context.
-
-### Fixed
- - The event propagation to not call updateValue on the component that initiated the change.
 
 ## 3.13.0
 ### Fixed
- - Issue where calling Formio.request by itself could return a non-Promise cached response.
- - FOR-2020: Fixed issue with the nosubmit flag not getting passed to nested forms.
- - FOR-2000: POST to URL button not passing headers, added interpolation to header value
+ - FOR-1802: ```change```  event not firing when component position is changed in PDF Form in builder
  - FOR-1806: ```initialized``` event firing before first ```change``` event when setting language
- - FOR-1901: Fixed infinite loop performance issues with nested forms.
-
-### Added
- - reCAPTCHA component
- - Azure Blob Storage support
- - FOR-1802: Added tests to ensure the change event is fired within PDF's
+ - FOR-2000: POST to URL button not passing headers, added interpolation to header value
 
 ## 3.12.3
 ### Fixed
@@ -377,30 +518,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 3.12.2
 ### Fixed
- - An error from getting thrown when you add a nested from without a form configured.
-
-## 3.12.1
-### Added
- - Some merge utilities to assist with the form merge system.
- - Improvements to Select component asString method.
-
-### Changed
- - Upgrade i18next@13.1.4
- 
-### Fixed
- - Problem where nested form would show the submit buttons.
- - Fixed bug with schema getter when it returns duplicates within components array.
+ - Wizard cancel.
 
 ## 3.12.0
 ### Added
  - Added "Inline Edit" mode for the edit grid to commit the changed rows inline with the submission value.
- - Hashing and caching for `interpolate` function.
+ - reCAPTCHA component
  - Ability to upload images to File Storage for Quill WYSIWYG
- - Row groups feature to Data Grid.
- - Static table configuration options to Data Grid component.
-
-### Changed
- - Upgrade i18next@13.1.2
+ - Possibility to skip proxy value for EditGrid.
+ - Hashing and caching for `interpolate` function.
 
 ## 3.11.1
 ### Fixed
@@ -505,13 +631,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - Language is lost when WebForm is created
  - Some style issues for RTL forms.
  - Text to remove superfluous spaces
-
+ 
 ### Added
  - FOR-1736: Custom component to core builder
- - Added field for component custom validation
-
-### Changed
- - Upgraded webpack@4.26.1, i18next@12.1.0, hoek@6.1.0
 
 ## 3.9.0
 ### Added
@@ -519,10 +641,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - Added File types
 
 ### Fixed
- - FOR-1850: Wrong key for Encrypted setting in builder
  - FOR-1847: Renderer crashing when TextArea is rendered in readOnly and viewAsHtml mode
- - FOR-1779: Fixed issues with multiple errors showing up on wizards.
- - Possibility to hide PDF submit button.
+ - FOR-1850: Wrong key for Encrypted setting in builder
 
 ## 3.8.0
 ### Added
@@ -534,26 +654,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
  - FOR-1845: Builder buttons missing for components with Logic
- - Hide "edit" and "delete" on readOnly for EditGrid
- - Button was disabled while it shouldn't be for Read Only forms, or when configured to always be enabled.
+ - Possibility to hide PDF submit button.
 
 ## 3.7.0
 ### Changed
  - Added the 'hideOnChildrenHidden' parameter for Columns to hide when their children are hidden.
 
 ### Added
+ - Content property to HTML and Content components Logic.
  - FOR-1806: languageChanged event
  - FOR-1844: Support for private file downloads with the URL file configuration. Also added a File Upload server @ https://github.com/formio/formio-upload that supports this feature.
 
 ### Fixed
- - FOR-1595: Placement of description for Edit Grid
- - FOR-1657: Select component Values template.
- - Fix bug with widget field being displayed on TextArea and Password
+ - Select component Values template.
  - FOR-1816: DateTime -> Unchecking '12 Hour Time (AM/PM)' checkbox not changing date format automatically
  - FOR-1815: Time component for Safari
- - FOR-1688, FOR-1508: Tabs component issues when building.
- - FOR-1398: Make columns component adjust on each render
-
+ - Tabs component issues when building.
+ 
 ## 3.6.13
 ### Fixed
  - FOR-1821: Number component min and max validation.
@@ -562,8 +679,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - FOR-1646: Blur events are forcing the select dropdowns to close.
  - FOR-1647: Checkboxes are not getting set in the correct default states.
 
-### Changed
- - Upgraded moment-timezone@0.5.23
+### Fixed
+ - Number component min and max validation.
 
 ## 3.6.12
 ### Fixed
@@ -602,6 +719,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 3.6.7
 ### Fixed
+ - Issue with preview destroy on change.
  - Problems with the Select component not working with Refresh On property for some cases.
 
 ## 3.6.6
@@ -643,9 +761,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - Upgrade @babel/cli@7.1.2, @babel/core@7.1.2, eslint@5.6.1, sinon@6.3.5
  - Moving the Form utilities to their own separate files.
 
-### Fixed
- - Custom validation of components inside EditGrid.
-
 ## 3.6.2
 ### Fixed
  - Fixed problems with infinite onChange events when hiding a multi select component with clearOnHide enabled.
@@ -680,8 +795,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 3.5.6
 ### Fixed
- - FOR-1566: Select component to use `asString` so it will show the label instead of the value.
  - FOR-1659: Form Builder preventing removing values from JS code fields (fixed Ace Textarea not firing onChange event when empty)
+ - Select component `getView`.
  - FOR-1659: Fixed Ace Textarea not firing onChange event when it gets empty
 
 ### Added
@@ -701,15 +816,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - The styles for the phone number component with locale configurations for Bootstrap 4.
 
 ### Added
- - FOR-1663: Added collapsible and collapsed to the Panel and also added icon to show collapsed state.
+ - FOR-1599: Ability to change CSS Classes using Logic
+
+### Fixed
+ - FOR-1705: HTML Element and Content Components losing content when any Logic is applied, 
+ - FOR-1705: moved 'customClass' CSS class from HTML content wrapper to regular formio component wrapper
+ - FOR-1706: Added 'CSS Class' (className) builder setting for Content component which adds 
 
 ## 3.5.3
 ### Fixed
- - FOR-1586: Survery component input names.
- - FOR-1363: Fixed issue where validations would fire twice when a button component is present.
- - FOR-1650: Fixed problem where multiple "change" events would fire on form render.
- - FOR-1581, FOR-1582: Fixed issues with Signature component would get in a bad state when conditional logic is applied."
- - Problem where an error would get thrown for NumberComponent and "decimalSeperator" references.
+ - Survery component input names.
 
 ## 3.5.2
 ### Fixed

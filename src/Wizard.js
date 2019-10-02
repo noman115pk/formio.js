@@ -1,14 +1,9 @@
-import Promise from 'native-promise-only';
+import NativePromise from 'native-promise-only';
 import _ from 'lodash';
-
 import Webform from './Webform';
-import Base from './components/base/Base';
+import Component from './components/_classes/component/Component';
 import Formio from './Formio';
-import {
-  checkCondition,
-  hasCondition,
-  firstNonNil
-} from './utils/utils';
+import { checkCondition, firstNonNil } from './utils/utils';
 
 export default class Wizard extends Webform {
   /**
@@ -18,18 +13,27 @@ export default class Wizard extends Webform {
    *    - breadcrumbSettings.clickable: true (default) determines if the breadcrumb bar is clickable or not
    *    - buttonSettings.show*(Previous, Next, Cancel): true (default) determines if the button is shown or not
    */
-  constructor(element, options) {
+  constructor() {
+    let element, options;
+    if (arguments[0] instanceof HTMLElement || arguments[1]) {
+      element = arguments[0];
+      options = arguments[1];
+    }
+    else {
+      options = arguments[0];
+    }
     super(element, options);
-    this.wizard = null;
+    this.panels = [];
     this.pages = [];
     this.globalComponents = [];
+    this.components = [];
     this.page = 0;
-    this._nextPage = 0;
+    this.currentNextPage = 0;
     this._seenPages = [0];
   }
 
   isLastPage() {
-    const next = this.getNextPage(this.submission.data, this.page);
+    const next = this.getNextPage();
 
     if (_.isNumber(next)) {
       return 0 < next && next >= this.pages.length;
@@ -65,25 +69,176 @@ export default class Wizard extends Webform {
     this.setPristine(true);
   }
 
+  init() {
+    // Check for and initlize button settings object
+    this.options.buttonSettings = _.defaults(this.options.buttonSettings, {
+      showPrevious: true,
+      showNext: true,
+      showSubmit: true,
+      showCancel: !this.options.readOnly
+    });
+
+    this.options.breadcrumbSettings = _.defaults(this.options.breadcrumbSettings, {
+      clickable: true
+    });
+
+    this.page = 0;
+    return super.init();
+  }
+
+  get wizardKey() {
+    return `wizard-${this.key}`;
+  }
+
+  get form() {
+    return this.wizard;
+  }
+
+  set form(value) {
+    super.form = value;
+  }
+
+  get buttons() {
+    const buttons = {};
+    ['cancel', 'previous', 'next', 'submit'].forEach((button) => {
+      if (this.hasButton(button)) {
+        buttons[button] = true;
+      }
+    });
+    return buttons;
+  }
+
+  render() {
+    return this.renderTemplate('wizard', {
+      wizardKey: this.wizardKey,
+      panels: this.panels,
+      buttons: this.buttons,
+      currentPage: this.page,
+      components: this.renderComponents([...this.globalComponents, ...this.pages[this.page]]),
+    }, this.builderMode ? 'builder' : 'form');
+  }
+
+  attach(element) {
+    this.element = element;
+    this.loadRefs(element, {
+      [this.wizardKey]: 'single',
+      [`${this.wizardKey}-cancel`]: 'single',
+      [`${this.wizardKey}-previous`]: 'single',
+      [`${this.wizardKey}-next`]: 'single',
+      [`${this.wizardKey}-submit`]: 'single',
+      [`${this.wizardKey}-link`]: 'multiple',
+    });
+
+    const pages = this.pages.length
+      ? [...this.pages[this.page]]
+      : [];
+    const promises = this.attachComponents(this.refs[this.wizardKey], [...this.globalComponents, ...pages]);
+
+    [
+      { name: 'cancel',    method: 'cancel' },
+      { name: 'previous',  method: 'prevPage' },
+      { name: 'next',      method: 'nextPage' },
+      { name: 'submit',    method: 'submit' }
+    ].forEach((button) => {
+      const buttonElement = this.refs[`${this.wizardKey}-${button.name}`];
+      if (!buttonElement) {
+        return;
+      }
+      this.addEventListener(buttonElement, 'click', (event) => {
+        event.preventDefault();
+
+        // Disable the button until done.
+        buttonElement.setAttribute('disabled', 'disabled');
+        this.setLoading(buttonElement, true);
+
+        // Call the button method, then re-enable the button.
+        this[button.method]().then(() => {
+          buttonElement.removeAttribute('disabled');
+          this.setLoading(buttonElement, false);
+        }).catch(() => {
+          buttonElement.removeAttribute('disabled');
+          this.setLoading(buttonElement, false);
+        });
+      });
+    });
+
+    this.refs[`${this.wizardKey}-link`].forEach((link, index) => {
+      this.addEventListener(link, 'click', (event) => {
+        this.emit('wizardNavigationClicked', this.pages[index]);
+        event.preventDefault();
+        this.setPage(index);
+      });
+    });
+
+    return promises;
+  }
+
+  addComponents() {
+    this.pages = [];
+    this.panels = [];
+    _.each(this.component.components, (item) => {
+      const pageOptions = _.clone(this.options);
+      if (item.type === 'panel') {
+        if (checkCondition(item, this.data, this.data, this.component, this)) {
+          this.panels.push(item);
+          const page = [];
+          _.each(item.components, (comp) => {
+            const component = this.createComponent(comp, pageOptions);
+            component.page = this.page;
+            page.push(component);
+          });
+          this.pages.push(page);
+        }
+      }
+      else if (item.type === 'hidden') {
+        const component = this.createComponent(item, pageOptions);
+        this.globalComponents.push(component);
+      }
+    });
+  }
+
   setPage(num) {
+    if (num === this.page) {
+      return NativePromise.resolve();
+    }
     if (!this.wizard.full && num >= 0 && num < this.pages.length) {
       this.page = num;
+
+      this.pageFieldLogic(num);
+
+      this.getNextPage();
       if (!this._seenPages.includes(num)) {
         this._seenPages = this._seenPages.concat(num);
       }
-      return super.setForm(this.currentPage());
+      this.redraw();
+      return NativePromise.resolve();
     }
     else if (this.wizard.full || !this.pages.length) {
-      return super.setForm(this.getWizard());
+      this.redraw();
+      return NativePromise.resolve();
     }
-    return Promise.reject('Page not found');
+    return NativePromise.reject('Page not found');
   }
 
-  getNextPage(data, currentPage) {
-    const form = this.pages[currentPage];
+  pageFieldLogic(page) {
+    // Handle field logic on pages.
+    this.component = this.panels[page];
+    this.originalComponent = _.cloneDeep(this.component);
+    this.fieldLogic(this.data);
+    // If disabled changed, be sure to distribute the setting.
+    this.disabled = this.shouldDisabled;
+  }
+
+  get currentPage() {
+    return (this.pages && (this.pages.length >= this.page)) ? this.pages[this.page] : null;
+  }
+
+  getNextPage() {
+    const data = this.submission.data;
+    const form = this.panels[this.page];
     // Check conditional nextPage
     if (form) {
-      const page = ++currentPage;
+      const page = this.page + 1;
       if (form.nextPage) {
         const next = this.evaluate(form.nextPage, {
           next: page,
@@ -92,20 +247,25 @@ export default class Wizard extends Webform {
           form
         }, 'next');
         if (next === null) {
+          this.currentNextPage = null;
           return null;
         }
 
         const pageNum = parseInt(next, 10);
         if (!isNaN(parseInt(pageNum, 10)) && isFinite(pageNum)) {
+          this.currentNextPage = pageNum;
           return pageNum;
         }
 
-        return this.getPageIndexByKey(next);
+        this.currentNextPage = this.getPageIndexByKey(next);
+        return this.currentNextPage;
       }
 
+      this.currentNextPage = page;
       return page;
     }
 
+    this.currentNextPage = null;
     return null;
   }
 
@@ -114,21 +274,27 @@ export default class Wizard extends Webform {
   }
 
   beforeSubmit() {
-    return Promise.all(this.getPages().map((page) => {
+    return NativePromise.all(this.getPages().map((page) => {
       page.options.beforeSubmit = true;
       return page.beforeSubmit();
     }));
   }
 
-  beforeNext() {
-    return new Promise((resolve, reject) => {
-      this.hook('beforeNext', this.currentPage(), this.submission, (err) => {
+  beforePage(next) {
+    return new NativePromise((resolve, reject) => {
+      this.hook(next ? 'beforeNext' : 'beforePrev', this.currentPage, this.submission, (err) => {
         if (err) {
           this.showErrors(err, true);
           reject(err);
         }
 
-        super.beforeNext().then(resolve).catch(reject);
+        const form = this.currentPage;
+        if (form) {
+          NativePromise.all(form.map((comp) => comp.beforePage(next))).then(resolve).catch(reject);
+        }
+        else {
+          resolve();
+        }
       });
     });
   }
@@ -136,33 +302,30 @@ export default class Wizard extends Webform {
   nextPage() {
     // Read-only forms should not worry about validation before going to next page, nor should they submit.
     if (this.options.readOnly) {
-      return this.setPage(this.getNextPage(this.submission.data, this.page)).then(() => {
-        this._nextPage = this.getNextPage(this.submission.data, this.page);
+      return this.setPage(this.getNextPage()).then(() => {
         this.emit('nextPage', { page: this.page, submission: this.submission });
       });
     }
 
-    // Validate the form builed, before go to the next page
+    // Validate the form, before go to the next page
     if (this.checkCurrentPageValidity(this.submission.data, true)) {
-      this.checkData(this.submission.data, {
-        noValidate: true
-      });
-      return this.beforeNext().then(() => {
-        return this.setPage(this.getNextPage(this.submission.data, this.page)).then(() => {
-          this._nextPage = this.getNextPage(this.submission.data, this.page);
+      this.checkData(this.submission.data);
+      return this.beforePage(true).then(() => {
+        return this.setPage(this.getNextPage()).then(() => {
           this.emit('nextPage', { page: this.page, submission: this.submission });
         });
       });
     }
     else {
-      return Promise.reject(this.showErrors(null, true));
+      return NativePromise.reject(this.showErrors(null, true));
     }
   }
 
   prevPage() {
-    const prevPage = this.getPreviousPage();
-    return this.setPage(prevPage).then(() => {
-      this.emit('prevPage', { page: this.page, submission: this.submission });
+    return this.beforePage().then(() => {
+      return this.setPage(this.getPreviousPage()).then(() => {
+        this.emit('prevPage', { page: this.page, submission: this.submission });
+      });
     });
   }
 
@@ -176,8 +339,8 @@ export default class Wizard extends Webform {
   }
 
   getPageIndexByKey(key) {
-    let pageIndex = 0;
-    this.pages.forEach((page, index) => {
+    let pageIndex = this.page;
+    this.panels.forEach((page, index) => {
       if (page.key === key) {
         pageIndex = index;
         return false;
@@ -186,67 +349,14 @@ export default class Wizard extends Webform {
     return pageIndex;
   }
 
-  addGlobalComponents(page) {
-    // If there are non-page components, then add them here. This is helpful to allow for hidden fields that
-    // can propogate between pages.
-    if (this.globalComponents.length) {
-      page.components = this.globalComponents.concat(page.components);
-    }
-    return page;
-  }
+  checkPageValidity(data, dirty, page) {
+    page = page || this.page;
 
-  getPage(pageNum) {
-    if ((pageNum >= 0) && (pageNum < this.pages.length)) {
-      return this.addGlobalComponents(this.pages[pageNum]);
-    }
-    return null;
-  }
-
-  getWizard() {
-    let pageIndex = 0;
-    let page = null;
-    const wizard = _.clone(this.wizard);
-    wizard.components = [];
-    do {
-      page = this.getPage(pageIndex);
-
-      if (page) {
-        wizard.components.push(page);
-      }
-
-      pageIndex = this.getNextPage(this.submission.data, pageIndex);
-    } while (pageIndex);
-
-    // Add all other components.
-    this.wizard.components.forEach((component) => {
-      if (component.type !== 'panel') {
-        wizard.components.push(component);
-      }
+    let check = true;
+    this.pages[page].forEach((comp) => {
+      check &= comp.checkValidity(data, dirty);
     });
-
-    return wizard;
-  }
-
-  currentPage() {
-    return this.getPage(this.page);
-  }
-
-  buildPages(form) {
-    this.pages = [];
-    form.components.forEach((component) => {
-      if (component.type === 'panel') {
-        // Ensure that this page can be seen.
-        if (checkCondition(component, this.data, this.data, this.wizard, this)) {
-          this.pages.push(component);
-        }
-      }
-      else if (component.type === 'hidden') {
-        // Global components are hidden components that can propagate between pages.
-        this.globalComponents.push(component);
-      }
-    });
-    this.buildWizardHeader();
-    this.buildWizardNav();
+    return check;
   }
 
   get schema() {
@@ -258,28 +368,41 @@ export default class Wizard extends Webform {
       return;
     }
     this.wizard = form;
-    this.buildPages(this.wizard);
-    return this.setPage(this.page);
+    this.component.components = form.components || [];
+
+    // Check if there are no panel components.
+    if (this.component.components.filter(component => component.type === 'panel').length === 0) {
+      this.component.components = [
+        {
+          type: 'panel',
+          title: 'Page 1',
+          label: 'Page 1',
+          key: 'page1',
+          components: this.component.components
+        }
+      ];
+    }
+
+    this.originalComponents = _.cloneDeep(this.component.components);
+
+    return super.setForm(form);
   }
 
-  build() {
-    super.build();
-    this.formReady.then(() => {
-      this.buildWizardHeader();
-      this.buildWizardNav();
-    });
+  setValue(submission, flags) {
+    const changed = super.setValue(submission, flags);
+    this.pageFieldLogic(this.page);
+    return changed;
+  }
+
+  isClickable(page, index) {
+    return this.page !== index && firstNonNil([
+      _.get(page, 'breadcrumbClickable'),
+      this.options.breadcrumbSettings.clickable
+    ]);
   }
 
   hasButton(name, nextPage) {
-    // Check for and initlize button settings object
-    const currentPage = this.currentPage();
-
-    this.options.buttonSettings = _.defaults(this.options.buttonSettings, {
-      showPrevious: true,
-      showNext: true,
-      showCancel: !this.options.readOnly
-    });
-
+    const currentPage = this.currentPage;
     if (name === 'previous') {
       const show = firstNonNil([
         _.get(currentPage, 'buttonSettings.previous'),
@@ -287,7 +410,7 @@ export default class Wizard extends Webform {
       ]);
       return (this.page > 0) && show;
     }
-    nextPage = (nextPage === undefined) ? this.getNextPage(this.submission.data, this.page) : nextPage;
+    nextPage = (nextPage === undefined) ? this.getNextPage() : nextPage;
     if (name === 'next') {
       const show = firstNonNil([
         _.get(currentPage, 'buttonSettings.next'),
@@ -302,88 +425,13 @@ export default class Wizard extends Webform {
       ]);
     }
     if (name === 'submit') {
-      return !this.options.readOnly && ((nextPage === null) || (this.page === (this.pages.length - 1)));
+      const show = firstNonNil([
+        _.get(currentPage, 'buttonSettings.submit'),
+        this.options.buttonSettings.showSubmit
+      ]);
+      return show && !this.options.readOnly && ((nextPage === null) || (this.page === (this.pages.length - 1)));
     }
     return true;
-  }
-
-  buildWizardHeader() {
-    if (this.wizardHeader) {
-      this.wizardHeader.innerHTML = '';
-    }
-
-    const currentPage = this.currentPage();
-    if (!currentPage || this.wizard.full) {
-      return;
-    }
-
-    currentPage.breadcrumb = currentPage.breadcrumb || 'default';
-    if (currentPage.breadcrumb.toLowerCase() === 'none') {
-      return;
-    }
-
-    // Check for and initlize breadcrumb settings object
-    this.options.breadcrumbSettings = _.defaults(this.options.breadcrumbSettings, {
-      clickable: true
-    });
-
-    this.wizardHeader = this.ce('nav', {
-      'aria-label': 'navigation'
-    });
-
-    this.wizardHeaderList = this.ce('ul', {
-      class: 'pagination'
-    });
-
-    this.wizardHeader.appendChild(this.wizardHeaderList);
-
-    // Add the header to the beginning.
-    this.prepend(this.wizardHeader);
-
-    const showHistory = (currentPage.breadcrumb.toLowerCase() === 'history');
-    this.pages.forEach((page, i) => {
-      // Iterate over predicates and returns first non-undefined value
-      const clickableFlag = firstNonNil([
-        // Now page (Panel) can override `breadcrumbSettings.clickable` option
-        _.get(page, 'breadcrumbClickable'),
-        // Set clickable based on breadcrumb settings
-        this.options.breadcrumbSettings.clickable
-      ]);
-
-      const clickable = this.page !== i && clickableFlag;
-      let pageClass = 'page-item ';
-      pageClass += (i === this.page) ? 'active' : (clickable ? '' : 'disabled');
-
-      const pageButton = this.ce('li', {
-        class: pageClass,
-        style: (clickable) ? 'cursor: pointer;' : ''
-      });
-
-      // Navigate to the page as they click on it.
-
-      if (clickable) {
-        this.addEventListener(pageButton, 'click', (event) => {
-          this.emit('wizardNavigationClicked', this.pages[i]);
-          event.preventDefault();
-          this.setPage(i);
-        });
-      }
-
-      const pageLabel = this.ce('span', {
-        class: 'page-link'
-      });
-      let pageTitle = page.title;
-      if (currentPage.breadcrumb.toLowerCase() === 'condensed') {
-        pageTitle = ((i === this.page) || showHistory) ? page.title : (i + 1);
-        if (!pageTitle) {
-          pageTitle = (i + 1);
-        }
-      }
-
-      pageLabel.appendChild(this.text(pageTitle));
-      pageButton.appendChild(pageLabel);
-      this.wizardHeaderList.appendChild(pageButton);
-    });
   }
 
   pageId(page) {
@@ -402,95 +450,39 @@ export default class Wizard extends Webform {
     }
   }
 
+  calculateVisiblePanels() {
+    const visible = [];
+    _.each(this.wizard.components, (component) => {
+      if (component.type === 'panel') {
+        // Ensure that this page can be seen.
+        if (checkCondition(component, this.data, this.data, this.wizard, this)) {
+          visible.push(component);
+        }
+      }
+    });
+    return visible;
+  }
+
   onChange(flags, changed) {
     super.onChange(flags, changed);
 
-    // Only rebuild if there is a page change.
-    let pageIndex = 0;
-    let rebuild = false;
-    this.wizard.components.forEach((component) => {
-      if (component.type !== 'panel') {
-        return;
-      }
-
-      if (hasCondition(component)) {
-        const hasPage = this.pages && this.pages[pageIndex]
-          && (this.pageId(this.pages[pageIndex]) === this.pageId(component));
-        const shouldShow = checkCondition(component, this.data, this.data, this.wizard, this);
-        if ((shouldShow && !hasPage) || (!shouldShow && hasPage)) {
-          rebuild = true;
-          return false;
-        }
-        if (shouldShow) {
-          pageIndex++;
-        }
-      }
-      else {
-        pageIndex++;
-      }
-    });
-
-    if (rebuild) {
-      this.setForm(this.wizard);
-    }
-
-    // Update Wizard Nav
-    const nextPage = this.getNextPage(this.submission.data, this.page);
-    if (this._nextPage !== nextPage) {
-      this.buildWizardNav(nextPage);
-      this.emit('updateWizardNav', { oldpage: this._nextPage, newpage: nextPage, submission: this.submission });
-      this._nextPage = nextPage;
+    // Only rebuild if there is a page visibility change.
+    const panels = this.calculateVisiblePanels();
+    const currentNextPage = this.currentNextPage;
+    const nextPage = this.getNextPage();
+    if (
+      (nextPage !== currentNextPage) ||
+      !_.isEqual(panels.map(panel => panel.key), this.panels.map(panel => panel.key))
+    ) {
+      // If visible panels changes we need to build this template again.
+      this.rebuild();
     }
   }
 
-  buildWizardNav(nextPage) {
-    if (this.wizardNav) {
-      this.wizardNav.innerHTML = '';
-      this.removeChild(this.wizardNav);
-    }
-    if (this.wizard.full) {
-      return;
-    }
-    this.wizardNav = this.ce('ul', {
-      class: 'list-inline'
-    });
-    this.element.appendChild(this.wizardNav);
-    [
-      { name: 'cancel',    method: 'cancel',   class: 'btn btn-default btn-secondary' },
-      { name: 'previous',  method: 'prevPage', class: 'btn btn-primary' },
-      { name: 'next',      method: 'nextPage', class: 'btn btn-primary' },
-      { name: 'submit',    method: 'submit',   class: 'btn btn-primary' }
-    ].forEach((button) => {
-      if (!this.hasButton(button.name, nextPage)) {
-        return;
-      }
-      const buttonWrapper = this.ce('li', {
-        class: 'list-inline-item'
-      });
-      const buttonProp = `${button.name}Button`;
-      const buttonElement = this[buttonProp] = this.ce('button', {
-        class: `${button.class} btn-wizard-nav-${button.name}`
-      });
-      buttonElement.appendChild(this.text(this.t(button.name)));
-      this.addEventListener(this[buttonProp], 'click', (event) => {
-        event.preventDefault();
-
-        // Disable the button until done.
-        buttonElement.setAttribute('disabled', 'disabled');
-        this.setLoading(buttonElement, true);
-
-        // Call the button method, then re-enable the button.
-        this[button.method]().then(() => {
-          buttonElement.removeAttribute('disabled');
-          this.setLoading(buttonElement, false);
-        }).catch(() => {
-          buttonElement.removeAttribute('disabled');
-          this.setLoading(buttonElement, false);
-        });
-      });
-      buttonWrapper.appendChild(this[buttonProp]);
-      this.wizardNav.appendChild(buttonWrapper);
-    });
+  rebuild() {
+    this.destroyComponents();
+    this.addComponents();
+    return this.redraw();
   }
 
   checkCurrentPageValidity(...args) {
@@ -498,7 +490,7 @@ export default class Wizard extends Webform {
   }
 
   checkPagesValidity(pages, ...args) {
-    const isValid = Base.prototype.checkValidity.apply(this, args);
+    const isValid = Component.prototype.checkValidity.apply(this, args);
     return pages.reduce((check, pageComp) => {
       return pageComp.checkValidity(...args) && check;
     }, isValid);

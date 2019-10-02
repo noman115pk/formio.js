@@ -9,10 +9,10 @@ export default {
         pattern: '{{field}} does not match the pattern {{pattern}}',
         minLength: '{{field}} must be longer than {{length}} characters.',
         maxLength: '{{field}} must be shorter than {{length}} characters.',
+        minWords: '{{field}} must have more than {{length}} words.',
+        maxWords: '{{field}} must have less than {{length}} words.',
         min: '{{field}} cannot be less than {{min}}.',
         max: '{{field}} cannot be greater than {{max}}.',
-        minSelectedCount: 'You must select at least {{minCount}} items to continue.',
-        maxSelectedCount: 'You can only select up to {{maxCount}} items to continue.',
         maxDate: '{{field}} should not contain date after {{- maxDate}}',
         minDate: '{{field}} should not contain date before {{- minDate}}',
         invalid_email: '{{field}} must be a valid email.', // eslint-disable-line camelcase

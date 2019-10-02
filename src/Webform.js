@@ -3,9 +3,9 @@ import moment from 'moment';
 import EventEmitter from './EventEmitter';
 import i18next from 'i18next';
 import Formio from './Formio';
-import Promise from 'native-promise-only';
+import NativePromise from 'native-promise-only';
 import Components from './components/Components';
-import NestedComponent from './components/nested/NestedComponent';
+import NestedComponent from './components/_classes/nested/NestedComponent';
 import { currentTimezone } from './utils/utils';
 
 // Initialize the available forms.
@@ -14,10 +14,17 @@ Formio.forms = {};
 // Allow people to register components.
 Formio.registerComponent = Components.setComponent;
 
+function getIconSet(icons) {
+  if (icons === 'fontawesome') {
+    return 'fa';
+  }
+  return icons || '';
+}
+
 function getOptions(options) {
   options = _.defaults(options, {
     submitOnEnter: false,
-    icons: Formio.icons || '',
+    iconset: getIconSet((options && options.icons) ? options.icons : Formio.icons),
     i18next,
     saveDraft: false,
     saveDraftThrottle: 5000
@@ -38,7 +45,6 @@ export default class Webform extends NestedComponent {
   /**
    * Creates a new Form instance.
    *
-   * @param {Object} element - The DOM element you wish to render this form within.
    * @param {Object} options - The options to create a new form instance.
    * @param {boolean} options.saveDraft - Set this if you would like to enable the save draft feature.
    * @param {boolean} options.saveDraftThrottle - The throttle for the save draft feature.
@@ -48,8 +54,18 @@ export default class Webform extends NestedComponent {
    * @param {boolean} options.template - Provides a way to inject custom logic into the creation of every element rendered within the form.
    */
   /* eslint-disable max-statements */
-  constructor(element, options) {
+  constructor() {
+    let element, options;
+    if (arguments[0] instanceof HTMLElement || arguments[1]) {
+      element = arguments[0];
+      options = arguments[1];
+    }
+    else {
+      options = arguments[0];
+    }
     super(null, getOptions(options));
+
+    this.element = element;
 
     // Keep track of all available forms globally.
     Formio.forms[this.id] = this;
@@ -105,10 +121,10 @@ export default class Webform extends NestedComponent {
     this.type = 'form';
     this._src = '';
     this._loading = false;
-    this._submission = {};
     this._form = {};
     this.draftEnabled = false;
     this.savingDraft = true;
+    this.originalComponents = [];
     if (this.options.saveDraftThrottle) {
       this.triggerSaveDraft = _.throttle(this.saveDraft.bind(this), this.options.saveDraftThrottle);
     }
@@ -163,12 +179,6 @@ export default class Webform extends NestedComponent {
     this.onSubmission = null;
 
     /**
-     * Promise that is triggered when the form is done building.
-     * @type {Promise}
-     */
-    this.onFormBuild = null;
-
-    /**
      * Determines if this submission is explicitly set.
      * @type {boolean}
      */
@@ -186,7 +196,7 @@ export default class Webform extends NestedComponent {
      * });
      * form.src = 'https://examples.form.io/example';
      */
-    this.formReady = new Promise((resolve, reject) => {
+    this.formReady = new NativePromise((resolve, reject) => {
       /**
        * Called when the formReady state of this form has been resolved.
        *
@@ -214,7 +224,7 @@ export default class Webform extends NestedComponent {
      * });
      * form.src = 'https://examples.form.io/example/submission/234234234234234243';
      */
-    this.submissionReady = new Promise((resolve, reject) => {
+    this.submissionReady = new NativePromise((resolve, reject) => {
       /**
        * Called when the formReady state of this form has been resolved.
        *
@@ -228,21 +238,6 @@ export default class Webform extends NestedComponent {
        * @type {function}
        */
       this.submissionReadyReject = reject;
-    });
-
-    /**
-     * Promise to trigger when the element for this form is established.
-     *
-     * @type {Promise}
-     */
-    this.onElement = new Promise((resolve) => {
-      /**
-       * Called when the element has been resolved.
-       *
-       * @type {function}
-       */
-      this.elementResolve = resolve;
-      this.setElement(element);
     });
 
     this.shortcuts = [];
@@ -265,6 +260,9 @@ export default class Webform extends NestedComponent {
     }
 
     this.component.clearOnHide = false;
+
+    // Ensure the root is set to this component.
+    this.root = this;
   }
   /* eslint-enable max-statements */
 
@@ -275,8 +273,11 @@ export default class Webform extends NestedComponent {
    * @return {Promise}
    */
   set language(lang) {
-    return new Promise((resolve, reject) => {
+    return new NativePromise((resolve, reject) => {
       this.options.language = lang;
+      if (i18next.language === lang) {
+        return resolve();
+      }
       try {
         i18next.changeLanguage(lang, (err) => {
           if (err) {
@@ -314,10 +315,10 @@ export default class Webform extends NestedComponent {
    */
   localize() {
     if (i18next.initialized) {
-      return Promise.resolve(i18next);
+      return NativePromise.resolve(i18next);
     }
     i18next.initialized = true;
-    return new Promise((resolve, reject) => {
+    return new NativePromise((resolve, reject) => {
       try {
         i18next.init(this.options.i18n, (err) => {
           // Get language but remove any ;q=1 that might exist on it.
@@ -332,32 +333,6 @@ export default class Webform extends NestedComponent {
         return reject(err);
       }
     });
-  }
-
-  /**
-   * Sets the the outside wrapper element of the Form.
-   *
-   * @param {HTMLElement} element - The element to set as the outside wrapper element for this form.
-   */
-  setElement(element) {
-    if (!element) {
-      return;
-    }
-
-    if (this.element) {
-      this.element.removeEventListener('keydown', this.executeShortcuts.bind(this));
-    }
-
-    this.wrapper = element;
-    this.element = this.ce('div');
-    this.wrapper.appendChild(this.element);
-    this.showElement(false);
-    this.element.addEventListener('keydown', this.executeShortcuts.bind(this));
-    let classNames = this.element.getAttribute('class');
-    classNames += ' formio-form';
-    this.addClass(this.wrapper, classNames);
-    this.loading = true;
-    this.elementResolve(element);
   }
 
   keyboardCatchableElement(element) {
@@ -376,7 +351,7 @@ export default class Webform extends NestedComponent {
     return true;
   }
 
-  executeShortcuts(event) {
+  executeShortcuts = (event) => {
     const { target } = event;
     if (!this.keyboardCatchableElement(target)) {
       return;
@@ -406,7 +381,7 @@ export default class Webform extends NestedComponent {
         event.preventDefault();
       }
     });
-  }
+  };
 
   addShortcut(element, shortcut) {
     if (!shortcut || !/^([A-Z]|Enter|Esc)$/i.test(shortcut)) {
@@ -483,7 +458,7 @@ export default class Webform extends NestedComponent {
   setSrc(value, options) {
     if (this.setUrl(value, options)) {
       this.nosubmit = false;
-      this.formio.loadForm({ params: { live: 1 } }).then(
+      return this.formio.loadForm({ params: { live: 1 } }).then(
         (form) => {
           const setForm = this.setForm(form);
           this.loadSubmission();
@@ -493,6 +468,7 @@ export default class Webform extends NestedComponent {
         this.formReadyReject(err);
       });
     }
+    return NativePromise.resolve();
   }
 
   /**
@@ -562,7 +538,9 @@ export default class Webform extends NestedComponent {
    */
   get ready() {
     return this.formReady.then(() => {
-      return this.loadingSubmission ? this.submissionReady : true;
+      return super.ready.then(() => {
+        return this.loadingSubmission ? this.submissionReady : true;
+      });
     });
   }
 
@@ -645,19 +623,6 @@ export default class Webform extends NestedComponent {
    * @returns {*}
    */
   setForm(form) {
-    if (form.display === 'wizard') {
-      console.warn('You need to instantiate the FormioWizard class to use this form as a wizard.');
-    }
-
-    if (this.onFormBuild) {
-      return this.onFormBuild.then(
-        () => this.createForm(form),
-        (err) => this.formReadyReject(err)
-      ).catch(
-        (err) => this.formReadyReject(err)
-      );
-    }
-
     // Create the form.
     this._form = form;
 
@@ -667,10 +632,16 @@ export default class Webform extends NestedComponent {
     }
 
     this.initialized = false;
-    return this.createForm(form).then(() => {
+    const rebuild = this.rebuild() || NativePromise.resolve();
+    return rebuild.then(() => {
       this.emit('formLoad', form);
       this.triggerRecaptcha();
-      return form;
+      // Make sure to trigger onChange after a render event occurs to speed up form rendering.
+      setTimeout(() => {
+        this.onChange();
+        this.formReadyResolve();
+      }, 0);
+      return this.formReady;
     });
   }
 
@@ -680,6 +651,11 @@ export default class Webform extends NestedComponent {
    * @returns {Object} - The form JSON schema.
    */
   get form() {
+    if (!this._form) {
+      this._form = {
+        components: []
+      };
+    }
     return this._form;
   }
 
@@ -733,13 +709,12 @@ export default class Webform extends NestedComponent {
         // If nothing changed, still trigger an update.
         this.submissionSet = true;
         if (!this.setValue(submission, flags)) {
-          if (this.hasChanged(submission, this.getValue())) {
-            this.triggerChange({
-              noValidate: true
-            });
-          }
+          this.triggerChange();
         }
-        return this.dataReady.then(() => this.submissionReadyResolve(submission));
+        else {
+          this.redraw();
+        }
+        return this.submissionReadyResolve(submission);
       },
       (err) => this.submissionReadyReject(err)
     ).catch(
@@ -806,7 +781,7 @@ export default class Webform extends NestedComponent {
   }
 
   get schema() {
-    const schema = this._form;
+    const schema = _.cloneDeep(_.omit(this._form, ['components']));
     schema.components = [];
     this.eachComponent((component) => schema.components.push(component.schema));
     return schema;
@@ -856,50 +831,97 @@ export default class Webform extends NestedComponent {
   }
 
   /**
-   * Create a new form.
-   *
-   * @param {Object} form - The form object that is created.
-   * @returns {Promise.<TResult>}
+   * Build the form.
    */
-  createForm(form) {
-    /**
-     * {@link BaseComponent.component}
-     */
+  init() {
+    this._submission = this._submission || { data: {} };
+
+    // Remove any existing components.
+    if (this.components && this.components.length) {
+      this.destroyComponents();
+      this.components = [];
+    }
+
     if (this.component) {
-      this.component.components = form.components;
+      this.component.components = this.form ? this.form.components : [];
+      this.originalComponents = _.cloneDeep(this.component.components);
     }
     else {
-      this.component = form;
+      this.component = this.form;
     }
-    return this.onFormBuild = this.render().then(() => {
-      this.formReadyResolve();
-      this.onFormBuild = null;
-      this.setValue(this.submission);
-      if (!this.changing) {
-        this.triggerChange();
-      }
-      return form;
-    }).catch((err) => {
-      console.warn(err);
-      this.formReadyReject(err);
-    });
+    this.component.type = 'form';
+    this.component.input = false;
+
+    this.addComponents();
+    this.isBuilt = true;
+
+    this.on('submitButton', options => {
+      this.submit(false, options).catch(e => e !== false && console.log(e));
+    }, true);
+
+    this.on('checkValidity', (data) => this.checkValidity(null, true, data), true);
+    this.on('requestUrl', (args) => (this.submitUrl(args.url,args.headers)), true);
+    this.on('resetForm', () => this.resetValue(), true);
+    this.on('deleteSubmission', () => this.deleteSubmission(), true);
+    this.on('refreshData', () => this.updateValue(), true);
+
+    return this.formReady;
   }
 
-  /**
-   * Render the form within the HTML element.
-   * @returns {Promise.<TResult>}
-   */
+  destroy() {
+    this.off('submitButton');
+    this.off('checkValidity');
+    this.off('requestUrl');
+    this.off('resetForm');
+    this.off('deleteSubmission');
+    this.off('refreshData');
+    return super.destroy();
+  }
+
+  build(element) {
+    if (element || this.element) {
+      return this.ready.then(() => {
+        element = element || this.element;
+        super.build(element);
+      });
+    }
+    return this.ready;
+  }
+
   render() {
-    return this.onElement.then(() => {
-      const state = this.clear();
-      this.showElement(false);
-      clearTimeout(this.build(state));
-      this.isBuilt = true;
-      this.on('resetForm', () => this.resetValue(), true);
-      this.on('deleteSubmission', () => this.deleteSubmission(), true);
-      this.on('refreshData', () => this.updateValue(), true);
-      setTimeout(() => this.emit('render'), 1);
-    });
+    return super.render(this.renderTemplate('webform', {
+      classes: 'formio-form',
+      children: this.renderComponents(),
+    }), this.builderMode ? 'builder' : 'form', true);
+  }
+
+  redraw() {
+    // Don't bother if we have not built yet.
+    if (!this.element) {
+      return NativePromise.resolve();
+    }
+    this.clear();
+    this.setContent(this.element, this.render());
+    return this.attach(this.element);
+  }
+
+  attach(element) {
+    this.element = element;
+    this.loadRefs(element, { webform: 'single' });
+    const childPromise = this.attachComponents(this.refs.webform);
+    this.element.addEventListener('keydown', this.executeShortcuts);
+    this.currentForm = this;
+    setTimeout(() => this.emit('render'), 1);
+    return childPromise.then(() => this.setValue(this._submission, {
+      noUpdateEvent: true
+    }));
+  }
+
+  detach() {
+    if (this.element) {
+      this.element.removeEventListener('keydown', this.executeShortcuts);
+    }
+    return super.detach();
   }
 
   resetValue() {
@@ -914,6 +936,13 @@ export default class Webform extends NestedComponent {
    * @param {string} message - The message to show in the alert.
    */
   setAlert(type, message) {
+    if (!type && this.submitted) {
+      if (this.alert) {
+        this.removeChild(this.alert);
+        this.alert = null;
+      }
+      return;
+    }
     if (this.options.noAlerts) {
       if (!message) {
         this.emit('error', false);
@@ -934,28 +963,12 @@ export default class Webform extends NestedComponent {
         class: `alert alert-${type}`,
         role: 'alert'
       });
-      this.alert.innerHTML = message;
+      this.setContent(this.alert, message);
     }
     if (!this.alert) {
       return;
     }
     this.prepend(this.alert);
-  }
-
-  /**
-   * Build the form.
-   */
-  build(state) {
-    this.on('submitButton', (options) => this.submit(false, options), true);
-    this.on('checkValidity', (data) => this.checkValidity(null, true, data), true);
-    this.addComponents(null, null, null, state);
-    this.currentForm = this;
-    this.on('requestUrl', (args) => (this.submitUrl(args.url,args.headers)), true);
-    return setTimeout(() => {
-      this.onChange({
-        noEmit: true
-      });
-    }, 1);
   }
 
   /**
@@ -1027,14 +1040,12 @@ export default class Webform extends NestedComponent {
     this.loading = false;
     this.submitting = false;
     this.setPristine(true);
-    this.setValue(submission, {
+    // We want to return the submitted submission and setValue will mutate the submission so cloneDeep it here.
+    this.setValue(_.cloneDeep(submission), {
       noValidate: true,
       noCheck: true
     });
     this.setAlert('success', `<p>${this.t('complete')}</p>`);
-    if (!submission.hasOwnProperty('saved')) {
-      submission.saved = saved;
-    }
     this.emit('submit', submission);
     if (saved) {
       this.emit('submitDone', submission);
@@ -1061,6 +1072,13 @@ export default class Webform extends NestedComponent {
 
     this.submitting = false;
     this.setPristine(false);
+
+    // Allow for silent cancellations (no error message, no submit button error state)
+    if (error && error.silent) {
+      this.emit('change', { isValid: true });
+      return false;
+    }
+
     return this.showErrors(error, true);
   }
 
@@ -1070,7 +1088,7 @@ export default class Webform extends NestedComponent {
    * @param changed
    * @param flags
    */
-  onChange(flags = {}, changed) {
+  onChange(flags, changed) {
     let isChangeEventEmitted = false;
     // For any change events, clear any custom errors for that component.
     if (changed && changed.component) {
@@ -1078,11 +1096,9 @@ export default class Webform extends NestedComponent {
     }
 
     super.onChange(flags, true);
-    const value = _.clone(this._submission);
+    const value = _.clone(this.submission);
     value.changed = changed;
-    flags.noValidate = !changed;
     value.isValid = this.checkData(value.data, flags, changed ? changed.instance : null);
-    this.showElement(true);
     this.loading = false;
     if (this.submitted) {
       this.showErrors();
@@ -1129,8 +1145,8 @@ export default class Webform extends NestedComponent {
    * @alias reset
    */
   cancel(noconfirm) {
-    if (noconfirm || confirm('Are you sure you want to cancel?')) {
-      this.emit('resetForm');
+    const shouldReset = this.hook('beforeCancel', true);
+    if (shouldReset && (noconfirm || confirm('Are you sure you want to cancel?'))) {
       this.resetValue();
       return true;
     }
@@ -1140,7 +1156,7 @@ export default class Webform extends NestedComponent {
   }
 
   submitForm(options = {}) {
-    return new Promise((resolve, reject) => {
+    return new NativePromise((resolve, reject) => {
       // Read-only forms should never submit.
       if (this.options.readOnly) {
         return resolve({
@@ -1149,23 +1165,24 @@ export default class Webform extends NestedComponent {
         });
       }
 
+      const submission = _.cloneDeep(this.submission || {});
+
       // Add in metadata about client submitting the form
-      this.submission.metadata = this.submission.metadata || {};
-      _.defaults(this.submission.metadata, {
+      submission.metadata = submission.metadata || {};
+      _.defaults(submission.metadata, {
         timezone: _.get(this, '_submission.metadata.timezone', currentTimezone()),
         offset: parseInt(_.get(this, '_submission.metadata.offset', moment().utcOffset()), 10),
         referrer: document.referrer,
         browserName: navigator.appName,
         userAgent: navigator.userAgent,
         pathName: window.location.pathname,
-        onLine: navigator.onLine,
+        onLine: navigator.onLine
       });
 
-      const submission = _.cloneDeep(this.submission || {});
-
       submission.state = options.state || 'submitted';
+
       const isDraft = (submission.state === 'draft');
-      this.hook('beforeSubmit', submission, (err) => {
+      this.hook('beforeSubmit', { ...submission, component: options.component }, (err) => {
         if (err) {
           return reject(err);
         }
@@ -1185,7 +1202,7 @@ export default class Webform extends NestedComponent {
           }
         });
 
-        this.hook('customValidation', submission, (err) => {
+        this.hook('customValidation', { ...submission, component: options.component }, (err) => {
           if (err) {
             // If string is returned, cast to object.
             if (typeof err === 'string') {
@@ -1206,24 +1223,31 @@ export default class Webform extends NestedComponent {
           this.loading = true;
 
           // Use the form action to submit the form if available.
-          let submitFormio = this.formio;
           if (this._form && this._form.action) {
-            submitFormio = new Formio(this._form.action, this.formio ? this.formio.options : {});
+            const method = (submission.data._id && this._form.action.includes(submission.data._id)) ? 'PUT' : 'POST';
+            return Formio.makeStaticRequest(this._form.action, method, submission.data, this.formio ? this.formio.options : {})
+              .then((result) => resolve({
+                submission: result,
+                saved: true,
+              }))
+              .catch(reject);
           }
 
+          const submitFormio = this.formio;
           if (this.nosubmit || !submitFormio) {
             return resolve({
               submission,
               saved: false,
             });
           }
-
           // If this is an actionUrl, then make sure to save the action and not the submission.
           const submitMethod = submitFormio.actionUrl ? 'saveAction' : 'saveSubmission';
-          submitFormio[submitMethod](submission).then((result) => resolve({
-            submission: result,
-            saved: true,
-          })).catch(reject);
+          submitFormio[submitMethod](submission)
+            .then((result) => resolve({
+              submission: result,
+              saved: true,
+            }))
+            .catch(reject);
         });
       });
     });
@@ -1234,7 +1258,7 @@ export default class Webform extends NestedComponent {
     this.submitting = true;
     return this.submitForm(options)
       .then(({ submission, saved }) => this.onSubmit(submission, saved))
-      .catch((err) => Promise.reject(this.onSubmissionError(err)));
+      .catch((err) => NativePromise.reject(this.onSubmissionError(err)));
   }
 
   /**
@@ -1266,7 +1290,7 @@ export default class Webform extends NestedComponent {
     }
   }
 
-  submitUrl(URL,headers) {
+  submitUrl(URL, headers) {
     if (!URL) {
       return console.warn('Missing URL argument');
     }
@@ -1305,6 +1329,19 @@ export default class Webform extends NestedComponent {
     }
   }
 
+  triggerRecaptcha() {
+    if (!this || !this.components) {
+      return;
+    }
+    const recaptchaComponent = this.components.find((component) => {
+      return component.component.type === 'recaptcha' &&
+        component.component.eventType === 'formLoad';
+    });
+    if (recaptchaComponent) {
+      recaptchaComponent.verify(`${this.form.name ? this.form.name : 'form'}Load`);
+    }
+  }
+
   set nosubmit(value) {
     this._nosubmit = !!value;
     this.emit('nosubmit', this._nosubmit);
@@ -1312,20 +1349,6 @@ export default class Webform extends NestedComponent {
 
   get nosubmit() {
     return this._nosubmit || false;
-  }
-
-  triggerRecaptcha() {
-    let recaptchaComponent;
-    this.root.everyComponent((component) => {
-      if (component.component.type === 'recaptcha' &&
-        component.component.eventType === 'formLoad') {
-        recaptchaComponent = component;
-        return false;
-      }
-    });
-    if (recaptchaComponent) {
-      recaptchaComponent.verify(`${this.form.name ? this.form.name : 'form'}Load`);
-    }
   }
 }
 

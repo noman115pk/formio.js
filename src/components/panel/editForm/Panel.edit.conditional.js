@@ -1,4 +1,4 @@
-import EditFormUtils from '../../base/editForm/utils';
+import EditFormUtils from '../../_classes/component/editForm/utils';
 /* eslint-disable quotes, max-len */
 const title = 'Advanced Next Page';
 const jsonProp = 'nextPage';
@@ -25,7 +25,9 @@ const settingComponent = EditFormUtils.javaScriptValue(
 export default [
   {
     ...settingComponent,
-    customConditional: 'show = instance.root.editForm.display === "wizard"',
+    customConditional(context) {
+      return context.instance.options.editForm.display === 'wizard';
+    }
   }
 ];
 /* eslint-enable quotes, max-len */
