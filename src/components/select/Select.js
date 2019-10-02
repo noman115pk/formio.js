@@ -182,9 +182,9 @@ export default class SelectComponent extends Field {
    * @param value
    * @param label
    */
-  addOption(value, label, attrs = {}) {
+  addOption(value, label, attrs = {}, id) {
     const option = {
-      value: value,
+      value: _.isObject(value) ? value : value.toString(),
       label: label
     };
 
@@ -193,11 +193,18 @@ export default class SelectComponent extends Field {
     }
 
     if (this.refs.selectContainer && (this.component.widget === 'html5')) {
-      this.refs.selectContainer.insertAdjacentHTML('beforeend', this.sanitize(this.renderTemplate('selectOption', {
-        selected: this.dataValue === option.value,
+      // Add element to option so we can reference it later.
+      const div = document.createElement('div');
+      div.innerHTML = this.sanitize(this.renderTemplate('selectOption', {
+        selected: _.isEqual(this.dataValue, option.value),
         option,
         attrs,
-      })));
+        id,
+        useId: (this.valueProperty === '') && _.isObject(value) && id,
+      })).trim();
+
+      option.element = div.firstChild;
+      this.refs.selectContainer.appendChild(option.element);
     }
   }
 
@@ -304,8 +311,8 @@ export default class SelectComponent extends Field {
     }
 
     // Iterate through each of the items.
-    _.each(items, (item) => {
-      this.addOption(this.itemValue(item), this.itemTemplate(item));
+    _.each(items, (item, index) => {
+      this.addOption(this.itemValue(item), this.itemTemplate(item), {}, String(index));
     });
 
     if (this.choices) {
@@ -765,10 +772,14 @@ export default class SelectComponent extends Field {
       searchEnabled: useSearch,
       searchChoices: !this.component.searchField,
       searchFields: _.get(this, 'component.searchFields', ['label']),
-      fuseOptions: Object.assign({
-        include: 'score',
-        threshold: _.get(this, 'component.searchThreshold', 0.3),
-      }, _.get(this, 'component.fuseOptions', {})),
+      fuseOptions: Object.assign(
+        {},
+        _.get(this, 'component.fuseOptions', {}),
+        {
+          include: 'score',
+          threshold: _.get(this, 'component.searchThreshold', 0.3),
+        }
+      ),
       itemComparer: _.isEqual,
       resetScrollPosition: false,
       ...customOptions,
@@ -1018,6 +1029,17 @@ export default class SelectComponent extends Field {
     }
     else if (this.refs.selectContainer) {
       value = this.refs.selectContainer.value;
+
+      if (this.valueProperty === '') {
+        if (value === '') {
+          return {};
+        }
+
+        const option = this.selectOptions[value];
+        if (option && _.isObject(option.value)) {
+          value = option.value;
+        }
+      }
     }
     else {
       value = this.dataValue;
@@ -1251,7 +1273,7 @@ export default class SelectComponent extends Field {
         this.addInputError(message, dirty, [this.refs.selectContainer]);
       }
     }
-    else if (this.error && this.error.external === external) {
+    else if (this.error && this.error.external === !!external) {
       if (this.refs.messageContainer) {
         this.empty(this.refs.messageContainer);
       }

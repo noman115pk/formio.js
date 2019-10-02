@@ -87,6 +87,7 @@ const Harness = {
         maxListeners: 0
       })
     }, options));
+    component.pristine = false;
     return new Promise((resolve, reject) => {
       i18next.init(i18Defaults, (err) => {
         if (err) {
@@ -277,6 +278,7 @@ const Harness = {
     });
 
     // Set the value.
+    component.pristine = false;
     component.setValue(test.bad.value);
   },
   testWizardPrevPage(form, errors, onPrevPage) {
@@ -308,7 +310,7 @@ const Harness = {
     return form.nextPage();
   },
   testNumberBlur(cmp, inv, outv, display, index = 0) {
-    const input = _.get(cmp, ['inputs', index], {});
+    const input = _.get(cmp, ['refs', 'input', index], {});
     input.value = inv;
     input.dispatchEvent(new Event('blur'));
     assert.strictEqual(cmp.getValueAt(index), outv);

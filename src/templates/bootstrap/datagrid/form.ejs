@@ -8,7 +8,7 @@
     <tr>
       {% if (ctx.component.reorder) { %}<th></th>{% } %}
       {% ctx.columns.forEach(function(col) { %}
-      {% if (ctx.visibleColumns[col.key]) { %}
+      {% if (ctx.builder || ctx.visibleColumns[col.key]) { %}
       <th class="{{col.validate && col.validate.required ? 'field-required' : ''}}">
         {{ col.hideLabel ? '' : ctx.t(col.label || col.title) }}
         {% if (col.tooltip) { %} <i ref="tooltip" class="{{ctx.iconClass('question-sign')}} text-muted"></i>{% } %}
@@ -19,7 +19,7 @@
       <th>
         {% if (!ctx.builder && ctx.hasAddButton && ctx.hasTopSubmit) { %}
         <button class="btn btn-primary formio-button-add-row" ref="{{ctx.datagridKey}}-addRow">
-          <i class="{{ctx.iconClass('plus')}}"></i> Add Another
+          <i class="{{ctx.iconClass('plus')}}"></i>{{ctx.t('Add Another')}}
         </button>
         {% } %}
       </th>
@@ -44,7 +44,7 @@
         </td>
       {% } %}
       {% ctx.columns.forEach(function(col) { %}
-      {% if (ctx.visibleColumns[col.key]) { %}
+      {% if (ctx.builder || ctx.visibleColumns[col.key]) { %}
       <td ref="{{ctx.datagridKey}}">
         {{row[col.key]}}
       </td>

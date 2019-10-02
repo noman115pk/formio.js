@@ -89,7 +89,7 @@ export default class Input extends Multivalue {
   renderElement(value, index) {
     const info = this.inputInfo;
     info.attr = info.attr || {};
-    info.attr.value = this.getValueAsString(value);
+    info.attr.value = this.getValueAsString(this.formatValue(this.parseValue(value)));
     if (this.isMultipleMasksField) {
       info.attr.class += ' formio-multiple-mask-input';
     }
@@ -97,7 +97,7 @@ export default class Input extends Multivalue {
     if (this.component.widget && this.component.widget.type === 'calendar') {
       this.component.suffix = this.renderTemplate('icon', {
         ref: 'icon',
-        className: this.iconClass(this.component.enableDate ? 'calendar' : 'time'),
+        className: this.iconClass(this.component.enableDate || this.component.widget.enableDate ? 'calendar' : 'time'),
         styles: '',
         content: ''
       });
@@ -112,7 +112,7 @@ export default class Input extends Multivalue {
       })
       : this.renderTemplate('input', {
         input: info,
-        value,
+        value: this.formatValue(this.parseValue(value)),
         index
       });
   }
@@ -164,6 +164,14 @@ export default class Input extends Multivalue {
     const changed = super.updateValue(value, flags);
     this.triggerUpdateValueAt(this.dataValue, flags, index);
     return changed;
+  }
+
+  parseValue(value) {
+    return value;
+  }
+
+  formatValue(value) {
+    return value;
   }
 
   attach(element) {

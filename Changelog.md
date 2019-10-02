@@ -4,6 +4,153 @@ All notable changes to this project will be documented in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 4.2.8
+### Fixed
+ - Submissions not working due to content-type header incorrect.
+
+## 4.2.7
+### Added
+ - Clickable option to wizard that existed in 3.x
+
+### Fixed 
+ - Make PDF render templates use data-noattach; make PDF rendering honor submit button visibility.
+ - ```Content-type``` and ```Accept``` headers being added to non-formio requests
+ - Fix select components not matching numeric values.
+ - Fixed Button component disabling.
+ - Fix select components not properly clearing error messages.
+ 
+## 4.2.6
+### Fixed
+ - Fixes to typescript types.
+ - Removed duplicate table-responsive class, fixed styles for help-block.
+ - Make editgrid dirty overridable.
+ - Add readme and changelog to released version.
+
+## 4.2.5
+### Fixed
+ - Edigrid rows not correctly reporting as valid.
+ - More tests.
+
+## 4.2.4
+### Fixed
+ - More typescript definitions for the Formio class.
+
+## 4.2.3
+### Fixed
+ - Minor bug fixes with tests
+ - More tests passing.
+
+## 4.2.2
+### Fixed
+ - The Typescript definitions for the Formio class.
+ - Fix nested forms not having config if loaded with full=true.
+
+### Changed
+ - Upgraded flatpickr@4.6.3, ejs-loader@0.3.5
+
+## 4.2.1
+### Fixed
+ - Possibility for edit grid render string to crash.
+ - Fixed the default schemas to not include the strictDateValidation flags.
+ - Fixed the default schemas for text field to not include the inputFormat flag.
+
+## 4.2.0
+NPM would not let us publish to this version. Increase minor version.
+
+## 4.2.0-rc.8
+### Changed
+ - Any part of Panel header to trigger collapse instead of just its title
+ - Upgrade dompurify@2.0.3, webpack@4.41.0
+ 
+### Added
+ - isInputComponent method in utils
+ - Type definitions to enable working with TypeScript wrappers.
+ - Added saved status for edit grid rows
+ - Htmlelement self closing tags support
+ - Adding the PDF page to the overlay settings and also tooltips.
+ 
+### Fixed
+ - Signature bug with disabling
+
+## 4.2.0-rc.7
+### Fixed
+ - Issues with the nested forms not triggering the "ready" flag when it is supposed to.
+ 
+### Changed
+ - Upgraded @babel/cli@7.6.2, @babel/core@7.6.2, @babel/preset-env@7.6.2, @babel/register@7.6.2
+
+## 4.2.0-rc.6
+### Fixed
+ - Build sizes by removing the locales from Flatpickr and Moment in our build, as well as removed double include of Choices.js.
+ - Issue with the rowIndex variable when working with nested components inside EditGrid and DataGrid.
+
+### Changed
+ - Upgraded dompurify@2.0.2, sinon@7.5.0
+
+## 4.2.0-rc.5
+### Fixed
+ - The form builder events to pass along all the necessary information for form merging to occur properly.
+
+## 4.2.0-rc.4
+### Fixed
+ - Issue where the row variable was not working for HTML and Content components.
+ - More tests.
+
+## 4.2.0-rc.3
+### Fixed
+ - Including other changes from 3.x regarding which variables are provided to userPermissions method.
+
+## 4.2.0-rc.2
+### Added
+ - Adding authurl and cansubmit refactor
+
+### Fixed
+ - Send user-visible text in templates through i18next.t() function
+ - FOR-2442: Fixing the calendar widget validations.
+
+## 4.2.0-rc.1
+### Added
+ - noDragDrop and skipRemoveConfirm to create components with predefined nested components and denied users to change that components.
+ - GetView for DateTime with defined format.
+ - Improvement to isEmpty function, that if we not provide the value, then we are getting dataValue.
+ - Function isEqual, to support comparison of values for at least  DateTime component, where we need to compare only formatted dates.
+ - Added support for objects in HTML5 Select component.
+ 
+## Fixed
+ - Fix for EditGrid's components data context.
+ - Fix for Hidden component inside DataGrid.
+ - Check to verify, that previewElement exists.
+
+## 4.1.1
+### Added
+ - Added filter and sort fields to resource component. 
+ 
+### Fixed
+ - Stop different component editforms from mutating each other.
+
+## 4.1.0
+### Changed
+ - Major upgrade dompurify@2.0.0
+ - Minor upgrade i18next@17.0.16, eslint@6.4.0, webpack@4.40.2
+ - Code cleanup: Creating common sanitize methods.
+ - Refactoring the checkdata system to be more performant and easier to understand.
+
+### Fixed
+ - Fix issue where errors aren't clearing.
+ - Fix wizard taking a very long time to submit and simplify logic.
+ - Fixing button component to not require button element to attach and states to work correctly.
+ - Fixing the tags component setValue and getValue to work without choices.
+ - Fix events missing from Form factory.
+ - SAML is redirecting to home page after handshake. 
+ - Fixing issues with the panels from refreshing in wizards if they do not have keys.
+ - Fix issue where select html5 components can't restore value properly.
+ - Fixing issue with DataGrid, EditGrid, and DataMap not triggering changes correctly within setValue method.
+ 
+### Added
+ - Adding element protections.
+ - Added error container to TextArea component.
+ - A way to configure the Sanitization settings with outside configurations.
+
 ## 4.0.11
 ### Fixed 
  - Use of for/of in template not supported in IE11

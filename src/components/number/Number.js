@@ -123,10 +123,10 @@ export default class NumberComponent extends Input {
     }
 
     const val = this.refs.input[index].value;
-    return val ? this.parseNumber(val) : null;
+    return val ? this.parseNumber(val) : val;
   }
 
-  clearInput(input) {
+  parseValue(input) {
     let value = parseFloat(input);
 
     if (!_.isNaN(value)) {
@@ -144,14 +144,14 @@ export default class NumberComponent extends Input {
       return `${value}${this.decimalSeparator}${_.repeat('0', this.decimalLimit)}`;
     }
     else if (this.component.requireDecimal && value && value.includes(this.decimalSeparator)) {
-      return `${value}${_.repeat('0', this.decimalLimit - value.split(this.decimalSeparator)[1].length)})}`;
+      return `${value}${_.repeat('0', this.decimalLimit - value.split(this.decimalSeparator)[1].length)}`;
     }
 
     return value;
   }
 
   setValueAt(index, value) {
-    return super.setValueAt(index, this.formatValue(this.clearInput(value)));
+    return super.setValueAt(index, this.formatValue(this.parseValue(value)));
   }
 
   focus() {

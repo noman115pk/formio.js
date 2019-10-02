@@ -29,7 +29,14 @@ export default class HTMLComponent extends Component {
   }
 
   get content() {
-    return this.component.content ? this.interpolate(this.component.content, { data: this.data, row: this.row }) : '';
+    return this.component.content ? this.interpolate(this.component.content, {
+      data: this.rootValue,
+      row: this.data
+    }) : '';
+  }
+
+  get singleTags() {
+    return ['br', 'img', 'hr'];
   }
 
   render() {
@@ -38,6 +45,7 @@ export default class HTMLComponent extends Component {
       tag: this.component.tag,
       attrs: this.component.attrs || {},
       content: this.content,
+      singleTags: this.singleTags,
     }));
   }
 

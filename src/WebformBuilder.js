@@ -125,7 +125,7 @@ export default class WebformBuilder extends Component {
         return html.replace('formio-component-form', '');
       }
 
-      if (this.options.disabled && this.options.disabled.includes(self.key)) {
+      if (this.options.disabled && this.options.disabled.includes(self.key) || self.parent.noDragDrop) {
         return html;
       }
 
@@ -136,7 +136,7 @@ export default class WebformBuilder extends Component {
 
     this.options.hooks.renderComponents = (html, { components, self }) => {
       // if Datagrid and already has a component, don't make it droppable.
-      if (self.type === 'datagrid' && components.length > 0) {
+      if (self.type === 'datagrid' && components.length > 0 || self.noDragDrop) {
         return html;
       }
 
@@ -170,9 +170,12 @@ export default class WebformBuilder extends Component {
     };
 
     this.options.hooks.attachComponents = (element, components, container, component) => {
-      // Don't attach if no element was found.
+      // Don't attach if no element was found or component doesn't participate in drag'n'drop.
       if (!element) {
         return;
+      }
+      if (component.noDragDrop) {
+        return element;
       }
       // Attach container and component to element for later reference.
       const containerElement = element.querySelector(`[ref="${component.component.key}-container"]`) || element;
@@ -662,6 +665,23 @@ export default class WebformBuilder extends Component {
     return info;
   }
 
+  getComponentsPath(component, parent) {
+    // Get path to the component in the parent component.
+    let path = 'components';
+    switch (parent.type) {
+      case 'table':
+        path = `rows[${component.tableRow}][${component.tableColumn}].components`;
+        break;
+      case 'columns':
+        path = `columns[${component.column}].components`;
+        break;
+      case 'tabs':
+        path = `components[${component.tab}].components`;
+        break;
+    }
+    return path;
+  }
+
   /* eslint-disable max-statements */
   onDrop(element, target, source, sibling) {
     if (!target) {
@@ -725,22 +745,9 @@ export default class WebformBuilder extends Component {
     }
 
     const parent = target.formioComponent;
-    // Get path to the component in the parent component.
-    let path = 'components';
-    switch (parent.type) {
-      case 'table':
-        path = `rows[${info.tableRow}][${info.tableColumn}].components`;
-        break;
-      case 'columns':
-        path = `columns[${info.column}].components`;
-        break;
-      case 'tabs':
-        path = `components[${info.tab}].components`;
-        break;
-    }
-    // Index within container
+    const path = this.getComponentsPath(info, parent.component);
     const index = _.findIndex(_.get(parent.schema, path), { key: info.key }) || 0;
-    this.emit('addComponent', info, parent, path, index);
+    this.emit('addComponent', info, parent, path, index, isNew);
 
     if (isNew && !this.options.noNewEdit) {
       this.editComponent(info, target, isNew);
@@ -800,16 +807,20 @@ export default class WebformBuilder extends Component {
     }
     let remove = true;
     if (
-      (Array.isArray(component.components) && component.components.length) ||
-      (Array.isArray(component.rows) && component.rows.length) ||
-      (Array.isArray(component.columns) && component.columns.length)
+      !component.skipRemoveConfirm &&
+      (
+        (Array.isArray(component.components) && component.components.length) ||
+        (Array.isArray(component.rows) && component.rows.length) ||
+        (Array.isArray(component.columns) && component.columns.length)
+      )
     ) {
       const message = 'Removing this component will also remove all of its children. Are you sure you want to do this?';
       remove = window.confirm(this.t(message));
     }
     const index = parent.formioContainer.indexOf(component);
     if (remove && index !== -1) {
-      this.emit('removeComponent', component);
+      const path = this.getComponentsPath(component, parent.formioComponent.component);
+      this.emit('removeComponent', component, parent.formioComponent.component, path, index);
       parent.formioContainer.splice(index, 1);
       parent.formioComponent.rebuild();
       this.emit('change', this.form);
@@ -825,8 +836,10 @@ export default class WebformBuilder extends Component {
         'calculatedValue'
       ])] };
       const previewElement = this.componentEdit.querySelector('[ref="preview"]');
-      this.setContent(previewElement, this.preview.render());
-      this.preview.attach(previewElement);
+      if (previewElement) {
+        this.setContent(previewElement, this.preview.render());
+        this.preview.attach(previewElement);
+      }
     }
 
     // Change the "default value" field to be reflective of this component.
@@ -853,10 +866,11 @@ export default class WebformBuilder extends Component {
    * @param component
    * @return {boolean}
    */
-  saveComponent(component, parent) {
+  saveComponent(component, parent, isNew) {
     this.editForm.detach();
     const parentContainer = parent ? parent.formioContainer : this.container;
     const parentComponent = parent ? parent.formioComponent : this;
+    const path = this.getComponentsPath(component, parentComponent.component);
     const index = parentContainer.indexOf(component);
     this.dialog.close();
     if (index !== -1) {
@@ -865,7 +879,14 @@ export default class WebformBuilder extends Component {
       parentContainer[index] = submissionData.componentJson || submissionData;
       const rebuild = parentComponent.rebuild() || NativePromise.resolve();
       return rebuild.then(() => {
-        this.emit('saveComponent', parentContainer[index], originalComponent);
+        this.emit('saveComponent',
+          parentContainer[index],
+          originalComponent,
+          parentComponent.component,
+          path,
+          index,
+          isNew
+        );
         this.emit('change', this.form);
       });
     }
@@ -1017,7 +1038,7 @@ export default class WebformBuilder extends Component {
         return false;
       }
       saved = true;
-      this.saveComponent(component, parent);
+      this.saveComponent(component, parent, isNew);
     });
 
     this.addEventListener(this.dialog, 'close', () => {
@@ -1069,9 +1090,10 @@ export default class WebformBuilder extends Component {
         const parent = this.getParentElement(component.element);
         BuilderUtils.uniquify(this.findNamespaceRoot(parent.formioComponent.component), schema);
         const index = parent.formioContainer.indexOf(component.component);
+        const path = this.getComponentsPath(schema, parent.formioComponent.component);
         parent.formioContainer.splice(index + 1, 0, schema);
         parent.formioComponent.rebuild();
-        this.emit('saveComponent');
+        this.emit('saveComponent', schema, schema, parent.formioComponent.components, path, (index + 1), true);
         this.emit('change', this.form);
       }
     }

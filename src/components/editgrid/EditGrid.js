@@ -87,6 +87,25 @@ export default class EditGridComponent extends NestedComponent {
     return _.get(this.component, 'validate.minLength', 0);
   }
 
+  get data() {
+    return this._data;
+  }
+
+  set data(value) {
+    this._data = value;
+
+    const data = this.dataValue;
+
+    (this.editRows || []).forEach((row, index) => {
+      const rowData = data[index];
+
+      row.data = rowData;
+      row.components.forEach((component) => {
+        component.data = rowData;
+      });
+    });
+  }
+
   constructor(...args) {
     super(...args);
     this.type = 'editgrid';
@@ -239,45 +258,11 @@ export default class EditGridComponent extends NestedComponent {
   }
 
   checkData(data, flags = {}) {
-    return this.editRows.reduce((valid, editRow) => this.checkRow(data, editRow, flags) && valid, true);
+    return super.checkData(data, flags) && this.editRows.reduce((valid, editRow) => this.checkRow(data, editRow, flags) && valid, true);
   }
 
   checkRow(data, editRow, flags = {}) {
-    let valid = true;
-    if (flags.noCheck) {
-      return;
-    }
-
-    // Update the value.
-    let changed = this.updateValue(null, {
-      noUpdateEvent: true
-    });
-
-    // Iterate through all components and check conditions, and calculate values.
-    editRow.components.forEach(comp => {
-      if (comp.checkData) {
-        valid &= comp.checkData(data, flags);
-      }
-      changed |= comp.calculateValue(data, {
-        noUpdateEvent: true
-      });
-      comp.checkConditions(data);
-      if (!flags.noValidate) {
-        valid &= comp.checkValidity(data, this.component.inlineEdit || !editRow.isOpen);
-      }
-    });
-
-    if (!flags.noValidate) {
-      valid &= (this.validateRow(editRow) === true);
-    }
-
-    // Trigger the change if the values changed.
-    if (changed) {
-      this.triggerChange(flags);
-    }
-
-    // Return if the value is valid.
-    return valid;
+    return super.checkData(data, flags, editRow.components);
   }
 
   everyComponent(fn, rowIndex) {
@@ -368,12 +353,16 @@ export default class EditGridComponent extends NestedComponent {
     this.attachComponents(formComponents, this.editRows[rowIndex].components);
   }
 
-  editRow(rowIndex) {
-    const dataValue = this.dataValue || [];
-    const editRow = this.editRows[rowIndex];
+  setEditRowSettings(editRow) {
     editRow.dirty = false;
     editRow.isOpen = true;
     editRow.editing = true;
+  }
+
+  editRow(rowIndex) {
+    const dataValue = this.dataValue || [];
+    const editRow = this.editRows[rowIndex];
+    this.setEditRowSettings(editRow);
     const dataSnapshot = dataValue[rowIndex] ? _.cloneDeep(dataValue[rowIndex]) : {};
     if (this.component.inlineEdit) {
       editRow.backup = dataSnapshot;
@@ -444,7 +433,7 @@ export default class EditGridComponent extends NestedComponent {
     }
     editRow.dirty = true;
     if (!!this.validateRow(editRow) !== true) {
-      return;
+      return false;
     }
 
     if (!this.component.inlineEdit) {
@@ -468,6 +457,8 @@ export default class EditGridComponent extends NestedComponent {
     this.triggerChange();
     this.checkValidity(this.data, true);
     this.redraw();
+
+    return true;
   }
 
   updateRowsComponents(rowIndex) {
@@ -542,6 +533,7 @@ export default class EditGridComponent extends NestedComponent {
       }, 'valid', true);
       if (valid.toString() !== 'true') {
         editRow.error = valid;
+        valid = false;
       }
       else {
         delete editRow.error;
@@ -554,7 +546,7 @@ export default class EditGridComponent extends NestedComponent {
     return !!valid;
   }
 
-  checkValidity(data, dirty) {
+  checkComponentValidity(data, dirty) {
     if (!this.checkCondition(null, data)) {
       this.setCustomValidity('');
       return true;
@@ -638,8 +630,8 @@ export default class EditGridComponent extends NestedComponent {
         this.checkRow(this.data, this.editRows[rowIndex]);
       }
     });
+    this.updateOnChange(flags, changed);
     if (changed) {
-      this.checkValidity(this.data);
       this.redraw();
     }
     return changed;

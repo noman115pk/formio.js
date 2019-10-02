@@ -7,6 +7,7 @@ import moment from 'moment-timezone/moment-timezone';
 import jtz from 'jstimezonedetect';
 import { lodashOperators } from './jsonlogic/operators';
 import NativePromise from 'native-promise-only';
+import dompurify from 'dompurify';
 import { getValue } from './formUtils';
 import Evaluator from './Evaluator';
 const interpolate = Evaluator.interpolate;
@@ -586,12 +587,12 @@ export function formatDate(value, format, timezone) {
  * @param timezone
  * @return {string}
  */
-export function formatOffset(formatFn, date, format, timezone) {
+export function formatOffset(formatFn, date, format, timezone, locale) {
   if (timezone === currentTimezone()) {
-    return formatFn(date, format);
+    return formatFn(date, format, locale);
   }
   if (timezone === 'UTC') {
-    return `${formatFn(offsetDate(date, 'UTC').date, format)} UTC`;
+    return `${formatFn(offsetDate(date, 'UTC').date, format, locale)} UTC`;
   }
 
   // Load the zones since we need timezone information.
@@ -673,11 +674,15 @@ export function convertFormatToMoment(format) {
 
 export function convertFormatToMask(format) {
   return format
-  // Short and long month replacement.
-    .replace(/(MMM|MMMM)/g, 'MM')
-    // Year conversion
+  // Long month replacement.
+    .replace(/M{4}/g, 'MM')
+    // Initial short month conversion.
+    .replace(/M{3}/g, '***')
+    // Short month conversion if input as text.
+    .replace(/e/g, 'Q')
+    // Year conversion.
     .replace(/[ydhmsHMG]/g, '9')
-    // AM/PM conversion
+    // AM/PM conversion.
     .replace(/a/g, 'AA');
 }
 
@@ -707,7 +712,11 @@ export function getInputMask(mask) {
         break;
       case '*':
         maskArray.numeric = false;
-        maskArray.push(/[a-zA-Z0-9]/);
+        maskArray.push(/[a-zA-Zа-яА-ЯёЁ0-9\u00C0-\u017F]/);
+        break;
+      case 'Q':
+        maskArray.numeric = false;
+        maskArray.push(/[a-zа-яё\u00C0-\u017F]/i);
         break;
       default:
         maskArray.push(mask[i]);
@@ -749,6 +758,9 @@ export function getNumberSeparators(lang = 'en') {
 }
 
 export function getNumberDecimalLimit(component) {
+  if (_.has(component, 'decimalLimit')) {
+    return _.get(component, 'decimalLimit');
+  }
   // Determine the decimal limit. Defaults to 20 but can be overridden by validate.step or decimalLimit settings.
   let decimalLimit = 20;
   const step = _.get(component, 'validate.step', 'any');
@@ -1000,4 +1012,61 @@ export function getContextComponents(context) {
   return values;
 }
 
+/**
+ * Sanitize an html string.
+ *
+ * @param string
+ * @returns {*}
+ */
+export function sanitize(string, options) {
+  // Dompurify configuration
+  const sanitizeOptions = {
+    ADD_ATTR: ['ref', 'target'],
+    USE_PROFILES: { html: true }
+  };
+  // Add attrs
+  if (options.sanitizeConfig && Array.isArray(options.sanitizeConfig.addAttr) && options.sanitizeConfig.addAttr.length > 0) {
+    options.sanitizeConfig.addAttr.forEach((attr) => {
+      sanitizeOptions.ADD_ATTR.push(attr);
+    });
+  }
+  // Add tags
+  if (options.sanitizeConfig && Array.isArray(options.sanitizeConfig.addTags) && options.sanitizeConfig.addTags.length > 0) {
+    sanitizeOptions.ADD_TAGS = options.sanitizeConfig.addTags;
+  }
+  // Allow tags
+  if (options.sanitizeConfig && Array.isArray(options.sanitizeConfig.allowedTags) && options.sanitizeConfig.allowedTags.length > 0) {
+    sanitizeOptions.ALLOWED_TAGS = options.sanitizeConfig.allowedTags;
+  }
+  // Allow attributes
+  if (options.sanitizeConfig && Array.isArray(options.sanitizeConfig.allowedAttrs) && options.sanitizeConfig.allowedAttrs.length > 0) {
+    sanitizeOptions.ALLOWED_ATTR = options.sanitizeConfig.allowedAttrs;
+  }
+  // Allowd URI Regex
+  if (options.sanitizeConfig && options.sanitizeConfig.allowedUriRegex) {
+    sanitizeOptions.ALLOWED_URI_REGEXP = options.sanitizeConfig.allowedUriRegex;
+  }
+  return dompurify.sanitize(string, sanitizeOptions);
+}
+
 export { Evaluator, interpolate };
+
+export function isInputComponent(componentJson) {
+  if (componentJson.input === false || componentJson.input === true) {
+    return componentJson.input;
+  }
+  switch (componentJson.type) {
+    case 'htmlelement':
+    case 'content':
+    case 'columns':
+    case 'fieldset':
+    case 'panel':
+    case 'table':
+    case 'tabs':
+    case 'well':
+    case 'button':
+      return false;
+    default:
+      return true;
+  }
+}

@@ -105,21 +105,8 @@ export default class ButtonComponent extends Field {
     }));
   }
 
-  attach(element) {
-    this.loadRefs(element, {
-      button: 'single',
-      buttonMessageContainer: 'single',
-      buttonMessage: 'single'
-    });
-
-    const superAttach = super.attach(element);
-
-    if (!this.refs.button) {
-      return;
-    }
-
+  attachButton() {
     this.addShortcut(this.refs.button);
-
     let onChange = null;
     let onError = null;
     if (this.component.action === 'submit') {
@@ -171,7 +158,7 @@ export default class ButtonComponent extends Field {
 
     this.on('change', (value) => {
       this.loading = false;
-      this.disabled = this.options.readOnly || (this.component.disableOnInvalid && !value.isValid);
+      this.disabled = this.shouldDisabled || (this.component.disableOnInvalid && !value.isValid);
       this.setDisabled(this.refs.button, this.disabled);
       if (onChange) {
         onChange(value, value.isValid);
@@ -180,6 +167,7 @@ export default class ButtonComponent extends Field {
 
     this.on('error', () => {
       this.loading = false;
+      this.disabled = false;
       if (onError) {
         onError();
       }
@@ -188,7 +176,7 @@ export default class ButtonComponent extends Field {
     this.addEventListener(this.refs.button, 'click', this.onClick.bind(this));
 
     if (this.canDisable) {
-      this.disabled = this.options.readOnly || this.component.disabled;
+      this.disabled = this.shouldDisabled;
     }
 
     function getUrlParameter(name) {
@@ -208,6 +196,17 @@ export default class ButtonComponent extends Field {
         this.openOauth();
       }
     }
+  }
+
+  attach(element) {
+    this.loadRefs(element, {
+      button: 'single',
+      buttonMessageContainer: 'single',
+      buttonMessage: 'single'
+    });
+
+    const superAttach = super.attach(element);
+    this.attachButton();
     return superAttach;
   }
   /* eslint-enable max-statements */
@@ -380,10 +379,15 @@ export default class ButtonComponent extends Field {
   }
 
   focus() {
-    this.refs.button.focus();
+    if (this.refs.button) {
+      this.refs.button.focus();
+    }
   }
 
   triggerReCaptcha() {
+    if (!this.root) {
+      return;
+    }
     const recaptchaComponent = this.root.components.find((component) => {
       return component.component.type === 'recaptcha' &&
         component.component.eventType === 'buttonClick' &&
